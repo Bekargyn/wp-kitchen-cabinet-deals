@@ -1,0 +1,108 @@
+.page-template-home {
+  .productLine {
+    margin-top: -100px;
+    margin-bottom: 50px;
+
+    h2 {
+      margin-bottom: 40px;
+    }
+
+    .item {
+      .pdf {
+        display: block;
+        text-align: right;
+        margin-bottom: 15px;
+        padding-right: 40px;
+
+        span {
+          display: inline-block;
+          vertical-align: middle;
+          margin-right: 10px;
+          font-size: 19px;
+          font-family: 'ArialNarrow';
+          color: rgb(107, 107, 107);
+        }
+      }
+
+      .boxItem {
+        border-radius: 50px;
+        background-color: rgb(255, 255, 255);
+        box-shadow: 0px 5px 24px 0px rgba(24, 24, 24, 0.18);
+        overflow: hidden;
+        padding-bottom: 25px;
+
+        .name {
+          background-color: #ffa800;
+          font-size: 30px;
+					letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 35px 25px;
+          text-align: center;
+        }
+
+        .productsSlider {
+          .product {
+            padding: 35px;
+
+            .param {
+              font-size: 18px;
+							letter-spacing: 1px;
+              line-height: 1.467;
+              text-transform: uppercase;
+
+              span {
+                display: inline-block;
+                min-width: 70px;
+                text-transform: none;
+              }
+            }
+
+            .imgBox {
+            }
+          }
+
+          .slick-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 25px;
+            height: 60px;
+            background: url("../../img/arrow_banner.png") no-repeat center;
+            border: 0;
+            box-shadow: none;
+            overflow: hidden;
+            text-indent: 500px;
+            z-index: 10;
+            outline: none;
+            cursor: pointer;
+            opacity: 0;
+
+            &.slick-prev {
+              left: 10px;
+            }
+
+            &.slick-next {
+              right: 10px;
+              transform: translateY(-50%) rotate(180deg);
+            }
+          }
+        }
+
+        &:hover {
+          .productsSlider {
+            .slick-arrow {
+              transition: all 0.3s;
+              opacity: 1;
+            }
+          }
+        }
+      }
+
+      .buttonBox {
+        transform: translateY(-50%);
+      }
+    }
+  }
+
+}
+

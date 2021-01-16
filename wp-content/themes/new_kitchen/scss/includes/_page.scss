@@ -1,0 +1,19 @@
+.mainBanner {
+  background-position: center;
+  background-size: cover;
+
+  .titleBox {
+    padding-top: 375px;
+    padding-bottom: 50px;
+    @media (max-width: 767px) {
+      padding-top: 150px;
+    }
+  }
+}
+
+.pageText{
+  font-family: "Arial";
+  color: rgb(105, 105, 105);
+  line-height: 1.737;
+  text-align: justify;
+}

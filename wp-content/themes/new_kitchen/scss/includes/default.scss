@@ -1,0 +1,212 @@
+html, body {
+  padding: 0;
+  overflow-x: hidden;
+  line-height: 1;
+}
+
+a, a:hover {
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+}
+
+.container {
+  max-width: 1460px;
+  width: 100%;
+}
+
+$b: #fff;
+
+.preloader {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background: $b;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  z-index: 10000;
+
+  .circle {
+    width: 325px;
+    height: 325px;
+    display: block;
+    background: #383838;
+    border-radius: 500%;
+    position: relative;
+    animation: rotation 2s linear infinite;
+    @keyframes rotation {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .inner {
+      width: 200px;
+      height: 200px;
+      background: $b;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      border-radius: 100%;
+      box-shadow: 0 -130px 0 -75px $b;
+      animation: switch 8s ease-in-out infinite;
+      @keyframes switch {
+        0% {
+          top: 50%;
+          transform: translateX(-50%) translateY(-50%);
+          width: 200px;
+          height: 200px;
+          box-shadow: 0 -130px 0 -75px $b;
+
+        }
+        25% {
+          top: 50%;
+          transform: translateX(-50%) translateY(-50%);
+          width: 200px;
+          height: 200px;
+          box-shadow: 0 -130px 0 -75px $b;
+
+        }
+        50% {
+          top: calc(100% - 55px);
+          width: 50px;
+          height: 50px;
+          box-shadow: 0 -130px 0 75px $b;
+          transform: translateX(-50%) translateY(0);
+
+        }
+        75% {
+          top: calc(100% - 55px);
+          width: 50px;
+          height: 50px;
+          box-shadow: 0 -130px 0 75px $b;
+          transform: translateX(-50%) translateY(0);
+
+        }
+        100% {
+          top: 50%;
+          transform: translateX(-50%) translateY(-50%);
+          width: 200px;
+          height: 200px;
+          box-shadow: 0 -130px 0 -75px $b;
+
+        }
+
+      }
+    }
+  }
+}
+
+.mainWrapper {
+  position: relative;
+  font-family: 'Knockout-HTF29-JuniorLiteweight';
+	//font-family: "Arial";
+  font-size: 18px;
+  color: rgb(56, 56, 56);
+  overflow: hidden;
+
+  .button {
+    display: inline-block;
+    font-size: 19px;
+    color: rgb(255, 255, 255);
+    min-width: 220px;
+    text-transform: uppercase;
+    height: 50px;
+    line-height: 47px;
+    background-color: rgb(76, 130, 33);
+    padding: 0 25px;
+    border-radius: 30px;
+    text-align: center;
+    cursor: pointer;
+    border: 3px solid transparent;
+    box-shadow: none;
+    outline: none;
+    transition: all 0.3s;
+
+    &.active {
+      color: rgb(76, 130, 33);
+      background: none;
+      border: 3px solid rgb(76, 130, 33);
+    }
+
+    &.dark {
+      background-image: -moz-linear-gradient(90deg, rgb(13, 13, 13) 0%, rgb(58, 58, 58) 100%);
+      background-image: -webkit-linear-gradient(90deg, rgb(13, 13, 13) 0%, rgb(58, 58, 58) 100%);
+      background-image: -ms-linear-gradient(90deg, rgb(13, 13, 13) 0%, rgb(58, 58, 58) 100%);
+      border: 0;
+    }
+
+    &.yellow {
+      background-color: rgb(255, 168, 0);
+      color: rgb(42, 42, 42);
+    }
+
+    &:hover {
+      background-color: rgb(33, 33, 33);
+      color: rgb(255, 168, 0);
+    }
+  }
+
+  h1, h2 {
+    margin-bottom: 25px;
+
+    &:after {
+      background-color: rgb(56, 56, 56);
+      width: 130px;
+      height: 12px;
+      display: block;
+      content: " ";
+    }
+  }
+
+  h1 {
+    font-size: 80px;
+    line-height: 1;
+		letter-spacing: 1px;
+  }
+
+  h2 {
+    font-size: 40px;
+    text-transform: uppercase;
+    line-height: 1.3;
+		letter-spacing: 1px;
+  }
+
+  h4 {
+    text-transform: uppercase;
+    line-height: 1.421;
+    font-size: 19px;
+		letter-spacing: 1px;
+  }
+
+  @media (max-width: 767px) {
+    h1 {
+      font-size: 45px;
+    }
+
+    h2 {
+      font-size: 30px;
+    }
+  }
+
+  .socials {
+    margin-left: -7px;
+
+    img {
+      margin-right: 10px;
+    }
+  }
+
+  .mb-100 {
+    margin-bottom: 100px;
+  }
+}
+
+
+
+
