@@ -57,9 +57,9 @@
 
 			$totalreviews = $wpdb->get_results(
 				$wpdb->prepare("SELECT * FROM ".$table_name."
-				WHERE id>%d AND review_length >= %d AND type = %s
+				WHERE id>%d AND review_length >= %d AND (type = %s OR type = %s)
 				ORDER BY ".$sorttable." ".$sortdir." 
-				LIMIT ".$tablelimit." ", "0","$rlength","$rtype")
+				LIMIT ".$tablelimit." ", "0","$rlength","$rtype","Twitter")
 			);
 
 			
@@ -77,6 +77,46 @@
 			$totalreviewschunked = array_chunk($totalreviews, $reviewsperpage);
 		//}
 		//loop through each chunk
+
+		
+
+			//add styles from template misc here
+			$template_misc_array = json_decode($currentform[0]->template_misc, true);
+			
+			if(is_array($template_misc_array)){
+				$misc_style ="";
+				//hide stars and/or date
+				if($template_misc_array['showstars']=="no"){
+					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprevpro_star_imgs_T'.$currentform[0]->style.' {display: none;}';
+				}
+				if($template_misc_array['showdate']=="no"){
+					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_showdate_T'.$currentform[0]->style.' {display: none;}';
+				}
+				
+				
+				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bradius_T'.$currentform[0]->style.' {border-radius: '.$template_misc_array['bradius'].'px;}';
+				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg1_T'.$currentform[0]->style.' {background:'.$template_misc_array['bgcolor1'].';}';
+				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg2_T'.$currentform[0]->style.' {background:'.$template_misc_array['bgcolor2'].';}';
+				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor1_T'.$currentform[0]->style.' {color:'.$template_misc_array['tcolor1'].';}';
+				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor2_T'.$currentform[0]->style.' {color:'.$template_misc_array['tcolor2'].';}';
+				
+				//style specific mods 	div > p
+				if($currentform[0]->style=="1"){
+					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg1_T'.$currentform[0]->style.'::after{ border-top: 30px solid '.$template_misc_array['bgcolor1'].'; }';
+				}
+				
+				//------------------------
+
+				echo "<style>".$misc_style."</style>";
+				
+			}
+			//--------------------------
+			
+
+			//print out user style added
+			echo "<style>".$currentform[0]->template_css."</style>";
+		
+		
 		
 		//if making slide show then add it here
 		if($currentform[0]->createslider == "yes"){
@@ -93,6 +133,7 @@
 		} else {
 			echo '<div class="wprev-no-slider" id="wprev-slider-'.$currentform[0]->id.'"><ul>';
 		}
+
 		
 		foreach ( $totalreviewschunked as $reviewschunked ){
 			//echo "loop1";
@@ -116,49 +157,7 @@
 				//everything on one row so just put in multi array
 				$rowarray[0]=$totalreviewstemp;
 			}
-			
-			//add styles from template misc here
-			$template_misc_array = json_decode($currentform[0]->template_misc, true);
-			if(is_array($template_misc_array)){
-				$misc_style ="";
-				//hide stars and/or date
-				if($template_misc_array['showstars']=="no"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprevpro_star_imgs_T'.$currentform[0]->style.' {display: none;}';
-				}
-				if($template_misc_array['showdate']=="no"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_showdate_T'.$currentform[0]->style.' {display: none;}';
-				}
-				
-				
-				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bradius_T'.$currentform[0]->style.' {border-radius: '.$template_misc_array['bradius'].'px;}';
-				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg1_T'.$currentform[0]->style.' {background:'.$template_misc_array['bgcolor1'].';}';
-				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg2_T'.$currentform[0]->style.' {background:'.$template_misc_array['bgcolor2'].';}';
-				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor1_T'.$currentform[0]->style.' {color:'.$template_misc_array['tcolor1'].';}';
-				$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor2_T'.$currentform[0]->style.' {color:'.$template_misc_array['tcolor2'].';}';
-				
-				//style specific mods 	div > p
-				if($currentform[0]->style=="1"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg1_T'.$currentform[0]->style.'::after{ border-top: 30px solid '.$template_misc_array['bgcolor1'].'; }';
-				}
-				if($currentform[0]->style=="2"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_bg1_T'.$currentform[0]->style.' {border-bottom:3px solid '.$template_misc_array['bgcolor2'].'}';
-				}
-				if($currentform[0]->style=="3"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor3_T'.$currentform[0]->style.' {text-shadow:'.$template_misc_array['tcolor3'].' 1px 1px 0px;}';
-				}
-				if($currentform[0]->style=="4"){
-					$misc_style = $misc_style . '#wprev-slider-'.$currentform[0]->id.' .wprev_preview_tcolor3_T'.$currentform[0]->style.' {color:'.$template_misc_array['tcolor3'].';}';
-				}
-				//------------------------
 
-				echo "<style>".$misc_style."</style>";
-				
-			}
-			//--------------------------
-			
-
-			//print out user style added
-			echo "<style>".$currentform[0]->template_css."</style>";
 			 
 			//if making slide show
 			if($makingslideshow){
@@ -180,6 +179,13 @@
 		}	//end loop chunks
 		//if making slide show then end it
 		if($makingslideshow){
+			/*$mousepause = "fbslider.on('mouseover', function() {
+								fbslider.data('wprs_unslider').stop();
+							}).on('mouseout', function() {
+								fbslider.data('wprs_unslider').start();
+							});";
+							*/
+							
 				echo '</ul></div>';
 				echo "<script type='text/javascript'>
 						var jqtimesran = 0;
@@ -193,10 +199,11 @@
 						}
 						wprs_defer(function () {
 							jQuery(document).ready(function($) {
-								$('.wprev-slider').wprs_unslider(
+								var fbslider = $('#wprev-slider-".$currentform[0]->id."').wprs_unslider(
 									{
 									autoplay:false,
-									speed: '750',
+									speed: '700',
+									delay: '5000',
 									animation: 'horizontal',
 									arrows: true,
 									animateHeight: ".$animateheight.",
@@ -204,6 +211,7 @@
 									}
 								);
 								$('.wprs_unslider-nav').show();
+								".$mousepause."
 							});
 						});
 						</script>";

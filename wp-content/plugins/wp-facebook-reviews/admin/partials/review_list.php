@@ -16,14 +16,20 @@
     if (!current_user_can('manage_options')) {
         return;
     }
+	
+	
 	$html="";
 //db function variables
 global $wpdb;
 $table_name = $wpdb->prefix . 'wpfb_reviews';
 $rowsperpage = 20;
 ?>
-<div class="wrap" id="wp_fb-settings">
-	<h1><img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>"></h1>
+<div class="wrap">
+<h1 style="padding:0px;"></h1>
+</div>
+<div id="wp_fb-settings">
+
+	<img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>">
 <?php 
 include("tabmenu.php");
 ?>
@@ -39,14 +45,28 @@ _e('Search reviews, hide certain reviews, manually add reviews, save a CSV file 
 <?php 
 
 	//remove all, first make sure they want to remove all
+	if(isset($_GET['opt']) && $_GET['opt']=="delallfb"){
+		//$delete = $wpdb->query("TRUNCATE TABLE `".$table_name."`");
+		$delete = $wpdb->query("DELETE FROM `".$table_name."` WHERE `type` = 'Facebook'");
+	}
+	if(isset($_GET['opt']) && $_GET['opt']=="delalltw"){
+		//$delete = $wpdb->query("TRUNCATE TABLE `".$table_name."`");
+		$delete = $wpdb->query("DELETE FROM `".$table_name."` WHERE `type` = 'Twitter'");
+	}
 	if(isset($_GET['opt']) && $_GET['opt']=="delall"){
-		$delete = $wpdb->query("TRUNCATE TABLE `".$table_name."`");
-		//delete all cached avatars, avatars are recreated on public side also
-		$files = glob(plugin_dir_path(dirname(__DIR__)).'public/partials/avatars/*');
-		foreach($files as $file){ // iterate files
-		  if(is_file($file))
-			unlink($file); // delete file
-		}
+		//$delete = $wpdb->query("TRUNCATE TABLE `".$table_name."`");
+		$delete = $wpdb->query("DELETE FROM `".$table_name."`");
+		
+		//delete all cached avatars
+		$img_locations_option = json_decode(get_option( 'wprev_img_locations' ),true);
+		//delete all local avatars, used for FB images
+			$avatar_dir = $img_locations_option['upload_dir_wprev_avatars'];
+			$localfiles = glob($avatar_dir.'*');
+			foreach($localfiles as $file){ // iterate files
+			  if(is_file($file))
+				unlink($file); // delete file
+			}
+
 	}
 	
 	//pagenumber
@@ -139,7 +159,8 @@ _e('Search reviews, hide certain reviews, manually add reviews, save a CSV file 
 		$reviewtotalcount = $wpdb->get_var( 'SELECT COUNT(*) FROM '.$table_name );
 		//total pages
 		$totalpages = ceil($reviewtotalcount/$rowsperpage);
-		
+		$userpicwarning = '';
+		$foundlocalimg = false;
 		if($reviewtotalcount>0){
 			foreach ( $reviewsrows as $reviewsrow ) 
 			{
@@ -152,10 +173,15 @@ _e('Search reviews, hide certain reviews, manually add reviews, save a CSV file 
 				//user image
 				$userpicwarning = '';
 				if($reviewsrow->userpiclocal!=""){
-					$userpic = '<img style="-webkit-user-select: none" src="'.$reviewsrow->userpiclocal.'">';
+					$userpic = '<img style="-webkit-user-select: none" width="60px" src="'.$reviewsrow->userpiclocal.'">';
+					$foundlocalimg=true;
 				} else {
-					$userpic = '<img style="-webkit-user-select: none" src="'.$reviewsrow->userpic.'">';
-					$userpicwarning = '<div id="userpicwarning">Notice: The PHP Copy function was not able to save the Profile Images to your server. First, try retrieving the reviews again. If that doesn\'t work then make sure the Copy function is enabled on your server. This plugin will still work, however Facebook now expires Profile Images after a while. When they expire you will need to delete the reviews and re-download them.</div>';
+					$userpic = '<img style="-webkit-user-select: none" width="60px" src="'.$reviewsrow->userpic.'">';
+					if($foundlocalimg==false){
+					//$userpicwarning = '<div id="userpicwarning">Notice: The PHP Copy function was not able to save the Profile Images to your server. It may still be working in the background. Wait a little while, refresh this page, and see if this message will disappear. The more reviews you have the longer it takes. If that doesn\'t work then make sure the Copy function is enabled on your server. This plugin will still work, however Facebook now expires Profile Images after a while. When they expire you will need to delete the reviews and re-download them.</div>';
+					} else {
+					$userpicwarning ='';
+					}
 				}
 				//user profile link
 				$profilelink='';
@@ -180,7 +206,7 @@ _e('Search reviews, hide certain reviews, manually add reviews, save a CSV file 
 			}
 		} else {
 				$html .= '<tr>
-						<th colspan="9" scope="col" class="manage-column">'.__('No reviews found. Please visit the <a href="?page=wp_fb-facebook">Get FB Reviews</a> page to retrieve reviews from Facebook, or manually add one.', 'wp-fb-reviews').'</th>
+						<th colspan="9" scope="col" class="manage-column">'.__('No reviews found. Please visit the <a href="?page=wp_fb-facebook">Get FB Reviews</a> page to retrieve reviews from Facebook, or manually add one. If you\'ve already done that, then try de-activating and re-activating the plugin.', 'wp-fb-reviews').'</th>
 					</tr>';
 		}					
 				

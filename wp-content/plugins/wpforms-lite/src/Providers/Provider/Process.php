@@ -5,11 +5,7 @@ namespace WPForms\Providers\Provider;
 /**
  * Class Process handles entries processing using the provider settings and configuration.
  *
- * @package    WPForms\Providers\Provider
- * @author     WPForms
- * @since      1.4.7
- * @license    GPL-2.0+
- * @copyright  Copyright (c) 2018, WPForms LLC
+ * @since 1.4.7
  */
 abstract class Process {
 
@@ -40,7 +36,7 @@ abstract class Process {
 	 */
 	protected $entry = array();
 	/**
-	 * All form data.
+	 * Form data and settings.
 	 *
 	 * @since 1.4.7
 	 *
@@ -72,10 +68,10 @@ abstract class Process {
 	 *
 	 * @since 1.4.7
 	 *
-	 * @param array $fields Array of form fields.
-	 * @param array $entry Submitted form content.
-	 * @param array $form_data All form data.
-	 * @param int   $entry_id ID of a saved entry.
+	 * @param array $fields    Array of form fields.
+	 * @param array $entry     Submitted form content.
+	 * @param array $form_data Form data and settings.
+	 * @param int   $entry_id  ID of a saved entry.
 	 */
 	abstract public function process( $fields, $entry, $form_data, $entry_id );
 
@@ -84,8 +80,8 @@ abstract class Process {
 	 *
 	 * @since 1.4.7
 	 *
-	 * @param array $fields Array of form fields.
-	 * @param array $form_data All form data.
+	 * @param array $fields     Array of form fields.
+	 * @param array $form_data  Form data and settings.
 	 * @param array $connection All connection data.
 	 *
 	 * @return bool

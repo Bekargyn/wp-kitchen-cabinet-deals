@@ -54,6 +54,7 @@ class WP_FB_Reviews_Admin {
 		//for testing==============
 		$this->version = time();
 		//===================
+		
 
 	}
 
@@ -77,9 +78,14 @@ class WP_FB_Reviews_Admin {
 		 */
 		//only load for this plugin
 		if(isset($_GET['page'])){
-			if($_GET['page']=="wp_fb-facebook" || $_GET['page']=="wp_fb-settings" || $_GET['page']=="wp_fb-reviews" || $_GET['page']=="wp_fb-templates_posts" || $_GET['page']=="wp_fb-get_pro"){
-			wp_enqueue_style( $this->_token, plugin_dir_url( __FILE__ ) . 'css/wprev_admin.css', array(), $this->version, 'all' );
-			wp_enqueue_style( $this->_token."_wprev_w3", plugin_dir_url( __FILE__ ) . 'css/wprev_w3.css', array(), $this->version, 'all' );
+			if($_GET['page']=="wp_fb-facebook" || $_GET['page']=="wp_fb-get_twitter" || $_GET['page']=="wp_fb-settings" || $_GET['page']=="wp_fb-reviews" || $_GET['page']=="wp_fb-templates_posts" || $_GET['page']=="wp_fb-get_pro" || $_GET['page']=="wp_fb-welcome"){
+				wp_enqueue_style( $this->_token, plugin_dir_url( __FILE__ ) . 'css/wprev_admin.css', array(), $this->version, 'all' );
+				wp_enqueue_style( $this->_token."_wprev_w3", plugin_dir_url( __FILE__ ) . 'css/wprev_w3.css', array(), $this->version, 'all' );
+			
+			}
+			
+			if($_GET['page']=="wp_fb-get_twitter"){
+				wp_enqueue_style( $this->_token."_wprevpro", plugin_dir_url( __FILE__ ) . 'css/wprevpro_admin.css', array(), $this->version, 'all' );
 			
 			}
 			
@@ -115,7 +121,7 @@ class WP_FB_Reviews_Admin {
 
 		//scripts for all pages in this plugin
 		if(isset($_GET['page'])){
-			if($_GET['page']=="wp_fb-facebook" || $_GET['page']=="wp_fb-settings" || $_GET['page']=="wp_fb-reviews" || $_GET['page']=="wp_fb-templates_posts" || $_GET['page']=="wp_fb-get_pro"){
+			if($_GET['page']=="wp_fb-facebook" || $_GET['page']=="wp_fb-settings" || $_GET['page']=="wp_fb-reviews" || $_GET['page']=="wp_fb-templates_posts" || $_GET['page']=="wp_fb-get_pro" || $_GET['page']=="wp_fb-get_twitter"){
 				//pop-up script
 				wp_register_script( 'simple-popup-js',  plugin_dir_url( __FILE__ ) . 'js/wprev_simple-popup.min.js' , '', $this->version, false );
 				wp_enqueue_script( 'simple-popup-js' );
@@ -160,17 +166,36 @@ class WP_FB_Reviews_Admin {
 			//scripts for templates posts page
 			if($_GET['page']=="wp_fb-templates_posts"){
 				//admin js
+				$date_format = get_option( 'date_format' );
+				$sampledate = date($date_format,'1547391507');
+		
 				wp_enqueue_script('templates_posts_page-js', plugin_dir_url( __FILE__ ) . 'js/templates_posts_page.js', array( 'jquery' ), $this->version, false );
 				wp_localize_script('templates_posts_page-js', 'adminjs_script_vars', 
 					array(
 					'wpfb_nonce'=> wp_create_nonce('randomnoncestring'),
-					'pluginsUrl' => wpfbrev_plugin_url
+					'pluginsUrl' => wpfbrev_plugin_url,
+					'sampledate' => $sampledate
 					)
 				);
 				//add color picker here
 				wp_enqueue_style( 'wp-color-picker' );
 				//enque alpha color add-on wprevpro-wp-color-picker-alpha.js
-				wp_enqueue_script( 'wp-color-picker-alpha', plugin_dir_url( __FILE__ ) . 'js/wprevpro-wp-color-picker-alpha.js', array( 'wp-color-picker' ), '2.1.2', false );
+				wp_enqueue_script( 'wp-color-picker-alpha', plugin_dir_url( __FILE__ ) . 'js/wprevpro-wp-color-picker-alpha.js', array( 'wp-color-picker' ), '2.1.2', true );
+			}
+			
+			//scripts for get_twitter page itunes
+			if($_GET['page']=="wp_fb-get_twitter"){
+			//$typearray = unserialize(WPREV_TYPE_ARRAY);
+				//admin js
+				wp_enqueue_script('wprevpro_get_twitter_page-js', plugin_dir_url( __FILE__ ) . 'js/wprevpro_get_twitter_page.js', array( 'jquery' ), $this->version, false );
+				//used for ajax
+				wp_localize_script('wprevpro_get_twitter_page-js', 'adminjs_script_vars', 
+					array(
+					'wpfb_nonce'=> wp_create_nonce('randomnoncestring'),
+					'pluginsUrl' => wpfbrev_plugin_url
+					)
+				);
+				
 			}
 		}
 		
@@ -182,40 +207,59 @@ class WP_FB_Reviews_Admin {
 		 * adds the menu pages to wordpress
 		 */
 
-		$page_title = 'WP FB Reviews : Get Facebook Reviews';
-		$menu_title = 'WP FB Reviews';
+		$page_title = 'WP Reviews : Welcome';
+		$menu_title = 'WP Reviews';
 		$capability = 'manage_options';
-		$menu_slug = 'wp_fb-facebook';
+		$menu_slug = 'wp_fb-welcome';
 		
-		add_menu_page($page_title, $menu_title, $capability, $menu_slug, array($this,'wp_fb_facebook'),'dashicons-star-half');
+		add_menu_page($page_title, $menu_title, $capability, $menu_slug, array($this,'wp_fb_welcome'),'dashicons-star-half');
 		// We add this submenu page with the same slug as the parent to ensure we don't get duplicates
-		$sub_menu_title = 'Facebook';
-		add_submenu_page($menu_slug, $page_title, $sub_menu_title, $capability, $menu_slug, array($this,'wp_fb_facebook'));
+		$sub_menu_title = 'Welcome';
+		add_submenu_page($menu_slug, $page_title, $sub_menu_title, $capability, $menu_slug, array($this,'wp_fb_welcome'));
+		
+		
+		// Now add the hidden submenu page for twitter
+		$submenu_page_title = 'WP Reviews : Get Facebook Reviews';
+		$submenu_title = 'Facebook';
+		$submenu_slug = 'wp_fb-facebook';
+		add_submenu_page($menu_slug, $submenu_page_title, $submenu_title, $capability, $submenu_slug, array($this,'wp_fb_facebook'));
 
 		// We add this submenu page with the same slug as the parent to ensure we don't get duplicates
 		//$menu_slug = 'wp_fb-settings';
 		//$sub_menu_title = 'Get FB Reviews';
 		//add_submenu_page($menu_slug, $page_title, $sub_menu_title, $capability, $menu_slug, array($this,'wp_fb_settings'));
 		
+		// Now add the hidden submenu page for twitter
+		$submenu_page_title = 'WP Reviews : Twitter';
+		$submenu_title = 'Twitter';
+		$submenu_slug = 'wp_fb-get_twitter';
+		add_submenu_page($menu_slug, $submenu_page_title, $submenu_title, $capability, $submenu_slug, array($this,'wp_fb_gettwitter'));
+		
 		// Now add the submenu page for the actual reviews list
-		$submenu_page_title = 'WP FB Reviews : Reviews List';
+		$submenu_page_title = 'WP Reviews : Reviews List';
 		$submenu_title = 'Reviews List';
 		$submenu_slug = 'wp_fb-reviews';
 		add_submenu_page($menu_slug, $submenu_page_title, $submenu_title, $capability, $submenu_slug, array($this,'wp_fb_reviews'));
 		
 		// Now add the submenu page for the reviews templates
-		$submenu_page_title = 'WP FB Reviews : Templates';
+		$submenu_page_title = 'WP Reviews : Templates';
 		$submenu_title = 'Templates';
 		$submenu_slug = 'wp_fb-templates_posts';
 		add_submenu_page($menu_slug, $submenu_page_title, $submenu_title, $capability, $submenu_slug, array($this,'wp_fb_templates_posts'));
 		
 		// Now add the submenu page for the reviews templates
-		$submenu_page_title = 'WP FB Reviews : Upgrade';
+		$submenu_page_title = 'WP Reviews : Upgrade';
 		$submenu_title = 'Get Pro';
 		$submenu_slug = 'wp_fb-get_pro';
 		add_submenu_page($menu_slug, $submenu_page_title, $submenu_title, $capability, $submenu_slug, array($this,'wp_fb_getpro'));
 	}
 	
+	
+	
+	
+	public function wp_fb_welcome() {
+		require_once plugin_dir_path( __FILE__ ) . '/partials/welcome.php';
+	}
 	
 	public function wp_fb_facebook() {
 		require_once plugin_dir_path( __FILE__ ) . '/partials/facebook.php';
@@ -234,6 +278,10 @@ class WP_FB_Reviews_Admin {
 	}
 	public function wp_fb_getpro() {
 		require_once plugin_dir_path( __FILE__ ) . '/partials/get_pro.php';
+	}
+	
+	public function wp_fb_gettwitter() {
+		require_once plugin_dir_path( __FILE__ ) . '/partials/get_twitter.php';
 	}
 
 	/**
@@ -512,7 +560,7 @@ class WP_FB_Reviews_Admin {
 				$image->save( $source );
 			}
 		} else {
-			$error_string = $result->get_error_message();
+			$error_string = $image->get_error_message();
 			echo '<div id="message" class="error"><p>' . $error_string . '</p></div>';
 		}
 	}
@@ -521,8 +569,10 @@ class WP_FB_Reviews_Admin {
 		
 		//being called from js file after all reviews are downloaded.
 		check_ajax_referer('randomnoncestring', 'wpfb_nonce');
+		$img_locations_option = json_decode(get_option( 'wprev_img_locations' ),true);
+		$imageuploadedir =$img_locations_option['upload_dir_wprev_avatars'];
 		
-		$imagecachedir = plugin_dir_path( __DIR__ ).'/public/partials/avatars/';
+		//$imagecachedir = plugin_dir_path( __DIR__ ).'/public/partials/avatars/';
 		
 		//get array of all reviews, check to see if the image exists
 		global $wpdb;
@@ -535,8 +585,15 @@ class WP_FB_Reviews_Admin {
 			$id= $review->id;
 			$revid = $review->reviewer_id;
 			$newfilename = $review->created_time_stamp.'_'.$revid;
-			$newfile = $imagecachedir . $newfilename.'.jpg';
-			$newfileurl = esc_url( plugins_url( 'public/partials/avatars/',  dirname(__FILE__)  ) ). $newfilename.'.jpg';
+			
+			
+			//$newfile = $imagecachedir . $newfilename.'.jpg';
+			//$newfileurl = esc_url( plugins_url( 'public/partials/avatars/',  dirname(__FILE__)  ) ). $newfilename.'.jpg';
+			$newfile = $imageuploadedir . $newfilename.'.jpg';
+			$newfileurl = esc_url( $img_locations_option['upload_url_wprev_avatars']). $newfilename.'.jpg';
+			
+			//echo $newfile;
+			
 			//$userpic = $review->userpic;
 			$userpic = htmlspecialchars_decode($review->userpic);
 			//check for avatar
@@ -549,9 +606,30 @@ class WP_FB_Reviews_Admin {
 						$wpdb->query( $wpdb->prepare("UPDATE $table_name SET userpiclocal = '$newfileurl' WHERE id = %d AND reviewer_id = %s",$id, $revid) );
 					} else {
 						//echo "Copy failed.";
+						//try to curl the image
+						if (function_exists('curl_init')) {
+							$curl = curl_init();
+							$fh = fopen($newfile, 'w');
+							curl_setopt($curl, CURLOPT_URL, $userpic);
+							curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+							$result = curl_exec($curl);
+							fwrite($fh, $result);
+							fclose($fh);
+							curl_close($curl);
+											
+							if ( is_file($newfile) ) {
+								//$this->wppro_resizeimage($newfile,60);
+								//update db with new image location, userpiclocal
+								$wpdb->query( $wpdb->prepare("UPDATE $table_name SET userpiclocal = '$newfileurl' WHERE id = %d AND reviewer_id = %s",$id, $revid) );
+							}
+						}
 					}
 				}
-			}
+			} else {
+					//echo "image exists:".$newfile;
+					//image does exist, just update db with this filename
+					$wpdb->query( $wpdb->prepare("UPDATE $table_name SET userpiclocal = '$newfileurl' WHERE id = %d AND reviewer_id = %s",$id, $revid) );
+				}
 			//--------------------------
 
 		}
@@ -564,7 +642,7 @@ class WP_FB_Reviews_Admin {
 	 * @since   1.0.0
 	 * @return  void
 	 */	
-	//add_action('media_buttons','add_sc_select',11);
+	/* 
 	public function add_sc_select(){
 		//get id's and names of templates that are post type 
 		global $wpdb;
@@ -573,9 +651,8 @@ class WP_FB_Reviews_Admin {
 		if(count($currentforms)>0){
 		echo '&nbsp;<select id="wprs_sc_select"><option value="select">Review Template</option>';
 		foreach ( $currentforms as $currentform ){
-			$shortcodes_list .= '<option value="[wprevpro_usetemplate tid=\''.$currentform->id.'\']">'.$currentform->title.'</option>';
+			echo '<option value="[wprevpro_usetemplate tid=\''.$currentform->id.'\']">'.$currentform->title.'</option>';
 		}
-		 echo $shortcodes_list;
 		 echo '</select>';
 		}
 	}
@@ -594,7 +671,7 @@ class WP_FB_Reviews_Admin {
 	}
 	
 	
-	
+	*/
 //==========================================================================================	
 	/**
 	 * download fb backup method, only used if we get an error from the fb API reviews
@@ -855,5 +932,431 @@ class WP_FB_Reviews_Admin {
 	}
 //--======================= end fb tempmethod =======================--//	
 	*/	
+	
+		//====================twitter======================
+	//for checking twitter keys
+	public function wprp_twitter_gettweets_ajax() {
+		
+		//====default twitter keys used for standard search/
+		$wprevpro_twitter_api_default['key']='O30jlOfBnZdV5Eh8iWO37jsEw';
+		$wprevpro_twitter_api_default['secret']='GL4LFyXwfOZTORVmkQjXrhorUzEIy7ycamYXC8icpDWrluKXi2';
+		$wprevpro_twitter_api_default['token']='919980007707037697-B8oPwME9yBWt0NQc3L9pdEBvWqzFfzE';
+		$wprevpro_twitter_api_default['token_secret']='Gvk3Op3oNyhzzOd1oONPp414yNO6XnFqN5AxSJnMVxkoI';
+		
+		check_ajax_referer('randomnoncestring', 'wpfb_nonce');
+		$searchquery = sanitize_text_field($_POST['query']);
+		$searchendpoint = sanitize_text_field($_POST['endpoint']);
+		$formid = sanitize_text_field($_POST['fid']);
+		$resultarray['searchquery'] = $searchquery;
+		$resultarray['searchendpoint'] = $searchendpoint;
+		
+		//update the searchquery for the form id, this is because of the input on the pop-up.
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpfb_gettwitter_forms';
+		$timenow = time();
+		$data = array('query' => "$searchquery",'last_ran' =>"$timenow");
+		$format = array('%s','%d');
+		$updatetempquery = $wpdb->update($table_name, $data, array( 'id' => $formid ), $format, array( '%d' ));
+		
+		$wprevpro_twitter_api_key = get_option('wprevfb_twitterapi_key');
+		$wprevpro_twitter_api_key_secret = get_option('wprevfb_twitterapi_key_secret');
+		$wprevpro_twitter_api_token = get_option('wprevfb_twitterapi_token');
+		$wprevpro_twitter_api_token_secret = get_option('wprevfb_twitterapi_token_secret');
+		
+		//------if we are using default keys then force to the standard search, also force in javascript
+		if($searchendpoint=="7" || $wprevpro_twitter_api_key=='' || $wprevpro_twitter_api_key_secret=='' || $wprevpro_twitter_api_token=='' || $wprevpro_twitter_api_token_secret==''){
+			//use standard search
+			$connection = new Abraham\TwitterOAuth\TwitterOAuth($wprevpro_twitter_api_default['key'], $wprevpro_twitter_api_default['secret'], $wprevpro_twitter_api_default['token'], $wprevpro_twitter_api_default['token_secret']);
+
+			
+			$resultstemp = (array)$connection->get("search/tweets", ["q" => $searchquery,"count" => '100']);
+
+			//print_r($resultstemp);
+			
+			$statuses['results']=$resultstemp['statuses'];
+			
+			//$resultsarr = json_decode($resultstemp,true);
+			//print_r($resultsarr);
+			//$statusesarr = $resultsarr['statuses'];
+			//$statuses = json_encode($statusesarr['statuses']);
+			//$statuses need to match what we get from premium search
+		} else {
+			//try to use premium search
+			$connection = new Abraham\TwitterOAuth\TwitterOAuth($wprevpro_twitter_api_key, $wprevpro_twitter_api_key_secret, $wprevpro_twitter_api_token, $wprevpro_twitter_api_token_secret);
+			if($searchendpoint=='all'){
+				$endhtml = 'fullarchive';
+			} else {
+				$endhtml = '30day';
+			}
+			$statuses = $connection->get("tweets/search/".$endhtml."/wprevdev", ["query" => $searchquery,"maxResults" => '100']);
+		}
+		
+		//get an array of all tweets in db and pass back so we can know what we already have.
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpfb_reviews';
+		$resultarray['savedreviews'] = $wpdb->get_col( "SELECT unique_id FROM ".$table_name." WHERE type = 'Twitter'" );
+		
+		if ($connection->getLastHttpCode() == 200) {
+			$resultarray['ack'] = 'success';
+			$resultarray['msg'] ='';
+			$resultarray['statuses'] =$statuses;
+		} else {
+			// Handle error case
+			$resultarray['ack'] = 'error';
+			$temperrormessage = (array)$connection->getLastBody();
+			$temperrormessage = json_encode($temperrormessage);
+			$resultarray['msg'] = $temperrormessage;
+			$resultarray['statuses'] =$statuses;
+		}
+		
+		echo json_encode($resultarray);
+		die();
+	}
+	//for saving or deleting tweets in db
+	public function wprp_twitter_savetweet_ajax() {
+		check_ajax_referer('randomnoncestring', 'wpfb_nonce');
+		
+		
+		$saveordel =  sanitize_text_field($_POST['saveordel']);
+		
+		$review_text = sanitize_text_field($_POST['tw_text']);
+		$tw_rtc = sanitize_text_field($_POST['tw_rtc']);
+		$tw_rc = sanitize_text_field($_POST['tw_rc']);
+		$tw_fc = sanitize_text_field($_POST['tw_fc']);
+		$tw_time = sanitize_text_field($_POST['tw_time']);
+		$tw_id = sanitize_text_field($_POST['tw_id']);
+		$tw_sname = sanitize_text_field($_POST['tw_sname']);
+		$tw_name = sanitize_text_field($_POST['tw_name']);
+		$tw_img = sanitize_text_field($_POST['tw_img']);
+		$tw_lang = sanitize_text_field($_POST['tw_lang']);
+		
+		$fid = sanitize_text_field($_POST['fid']);
+		$limage = sanitize_text_field($_POST['limage']);
+
+		$pagename = sanitize_text_field($_POST['title']);
+		$pageid = str_replace(" ","",$pagename)."_".$fid;
+		$pageid = str_replace("'","",$pageid);
+		$pageid = str_replace('"',"",$pageid);
+//print_r($_POST);
+//		die();		
+		$timestamp = $this->myStrtotime($tw_time);
+		$unixtimestamp = $timestamp;
+		$timestamp = date("Y-m-d H:i:s", $timestamp);
+		
+		$review_length = mb_substr_count($review_text, ' ');
+		
+		//find character length
+		if (extension_loaded('mbstring')) {
+			$review_length_char = mb_strlen($text);
+		} else {
+			$review_length_char = strlen($text);
+		}
+		
+		
+		//$review_length_char = mb_strlen($review_text);
+		
+		$from_url = "https://twitter.com/".$tw_sname."/status/".$tw_id;
+		
+		
+		
+		//$cats = sanitize_text_field($_POST['cats']);
+		//$cats = str_replace("'",'"',$cats);
+		//$posts = sanitize_text_field($_POST['posts']);
+		//$posts = str_replace("'",'"',$posts);
+		//save likes, retweets, and replies in meta_data
+		//===============================================
+		$meta_data['user_url'] = "https://twitter.com/".$tw_sname;
+		$meta_data['favorite_count'] = $tw_fc;
+		$meta_data['retweet_count'] = $tw_rtc;
+		$meta_data['reply_count'] = $tw_rc;
+		$meta_data['screenname'] = $tw_sname;
+		$meta_json = json_encode($meta_data);
+		//{"user_url":"https://www.tripadvisor.com/Profile/rhohensee","location":"Houston, Texas","contributions":2,"helpful_votes":3,"date_of_visit":"2019-07-31"}
+		//===============================================
+		
+		
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpfb_reviews';
+		//if saving in db
+		if($saveordel=='save'){
+			
+			$stat = [
+						'reviewer_name' => $tw_name,
+						'reviewer_id' => trim($tw_sname),
+						'pagename' => trim($pagename),
+						'pageid' => trim($pageid),
+						'userpic' => $tw_img,
+						'recommendation_type' => 'positive',
+						'created_time' => $timestamp,
+						'created_time_stamp' => $unixtimestamp,
+						'review_text' => $review_text,
+						'hide' => '',
+						'review_length' => $review_length,
+						'review_length_char' => $review_length_char,
+						'type' => 'Twitter',
+						'from_url' => trim($from_url),
+						'from_url_review' => trim($from_url),
+						'language_code' => $tw_lang,
+						'unique_id' => $tw_id,
+						'meta_data' => $meta_json,
+						'categories' => trim($cats),
+						'posts' => trim($posts),
+					];
+			
+			//print_r($stat);
+		$insertnum = $wpdb->insert( $table_name, $stat );
+		$resultarray['insertnum']=$insertnum;
+			
+			//try to save local image if turned on
+			
+				//if($insertnum>0 && $limage=="yes" && $tw_img!=''){
+				//	$resultarray['imgdownload']='yes';
+				//	$stat['id']=$wpdb->insert_id;
+				//	$resultarray['id']=$stat['id'];
+				//	$statobj = (object) $stat;
+					$this->wprevpro_download_avatar_tolocal();
+				//}
+				
+			
+		}
+		
+		
+		echo json_encode($resultarray);
+		die();
+		
+	}
+	//to delete tweet via ajax
+	public function wprp_twitter_deltweet_ajax() {
+		check_ajax_referer('randomnoncestring', 'wpfb_nonce');
+		$tw_id = sanitize_text_field($_POST['tw_id']);
+		
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpfb_reviews';
+
+		//remove this tweets
+		$deletereview = $wpdb->delete( $table_name, array( 'unique_id' => $tw_id ), array( '%s' ) );
+		$resultarray['deletenum']=$deletereview;
+		
+		echo json_encode($resultarray);
+		die();
+		
+	}
+	
+		//fix stringtotime for other languages
+	private function myStrtotime($date_string) { 
+		$monthnamearray = array(
+		'janvier'=>'jan',
+		'février'=>'feb',
+		'mars'=>'march',
+		'avril'=>'apr',
+		'mai'=>'may',
+		'juin'=>'jun',
+		'juillet'=>'jul',
+		'août'=>'aug',
+		'septembre'=>'sep',
+		'octobre'=>'oct',
+		'novembre'=>'nov',
+		'décembre'=>'dec',
+		'gennaio'=>'jan',
+		'febbraio'=>'feb',
+		'marzo'=>'march',
+		'aprile'=>'apr',
+		'maggio'=>'may',
+		'giugno'=>'jun',
+		'luglio'=>'jul',
+		'agosto'=>'aug',
+		'settembre'=>'sep',
+		'ottobre'=>'oct',
+		'novembre'=>'nov',
+		'dicembre'=>'dec',
+		'janeiro'=>'jan',
+		'fevereiro'=>'feb',
+		'março'=>'march',
+		'abril'=>'apr',
+		'maio'=>'may',
+		'junho'=>'jun',
+		'julho'=>'jul',
+		'agosto'=>'aug',
+		'setembro'=>'sep',
+		'outubro'=>'oct',
+		'novembro'=>'nov',
+		'dezembro'=>'dec',
+		'enero'=>'jan',
+		'febrero'=>'feb',
+		'marzo'=>'march',
+		'abril'=>'apr',
+		'mayo'=>'may',
+		'junio'=>'jun',
+		'julio'=>'jul',
+		'agosto'=>'aug',
+		'septiembre'=>'sep',
+		'octubre'=>'oct',
+		'noviembre'=>'nov',
+		'diciembre'=>'dec',
+		'januari'=>'jan',
+		'februari'=>'feb',
+		'maart'=>'march',
+		'april'=>'apr',
+		'mei'=>'may',
+		'juni'=>'jun',
+		'juli'=>'jul',
+		'augustus'=>'aug',
+		'september'=>'sep',
+		'oktober'=>'oct',
+		'november'=>'nov',
+		'december'=>'dec',
+		' de '=>'',
+		'dezember'=>'dec',
+		'januar '=>'jan ',
+		'stycznia'=>'jan',
+		'lutego'=>'feb',
+		'februar'=>'feb',
+		'marca'=>'march',
+		'märz'=>'march',
+		'kwietnia'=>'apr',
+		'maja'=>'may',
+		'czerwca'=>'jun',
+		'lipca'=>'jul',
+		'sierpnia'=>'aug',
+		'września'=>'sep',
+		'października'=>'oct',
+		'listopada'=>'nov',
+		'grudnia'=>'dec',
+		);
+		//echo strtr(strtolower($date_string), $monthnamearray);
+		return strtotime(strtr(strtolower($date_string), $monthnamearray)); 
+	}
+	
+	/**
+	 * displays message in admin if it's been longer than 30 days.
+	 * @access  public
+	 * @since   1.0.0
+	 * @return  void
+	 */
+	public function wprp_admin_notice__success () {
+
+		$activatedtime = get_option('wprev_activated_time');
+		//if this is an old install then use 23 days ago
+		if($activatedtime==''){
+			$activatedtime= time() - (86400*23);
+			update_option( 'wprev_activated_time', $activatedtime );
+		}
+		$thirtydaysago = time() - (86400*30);
+		
+		//check if an option was clicked on
+		if (isset($_GET['wprevpronotice'])) {
+		  $wprevpronotice = $_GET['wprevpronotice'];
+		} else {
+		  //Handle the case where there is no parameter
+		   $wprevpronotice = '';
+		}
+		if($wprevpronotice=='mlater'){		//hide the notice for another 30 days
+			update_option( 'wprev_notice_hide', 'later' );
+			$newtime = time() - (86400*21);
+			update_option( 'wprev_activated_time', $newtime );
+			$activatedtime = $newtime;
+			
+		} else if($wprevpronotice=='notagain'){		//hide the notice forever
+			update_option( 'wprev_notice_hide', 'never' );
+		}
+		
+		$wprev_notice_hide = get_option('wprev_notice_hide');
+		
+		if($activatedtime<$thirtydaysago && $wprev_notice_hide!='never'){
+		
+			$urltrimmedtab = remove_query_arg( array('taction', 'tid', 'sortby', 'sortdir', 'opt') );
+			$urlmayberlater = esc_url( add_query_arg( 'wprevpronotice', 'mlater',$urltrimmedtab ) );
+			$urlnotagain = esc_url( add_query_arg( 'wprevpronotice', 'notagain',$urltrimmedtab ) );
+			
+			$temphtml = '<p>Hey, I noticed you\'ve been using my <b>WP Review Slider</b> plugin for a while now – that’s awesome! Could you please do me a BIG favor and give it a 5-star rating on WordPress? <br>
+			Thanks!<br>
+			~ Josh W.<br></p>
+			<ul>
+			<li><a href="https://wordpress.org/support/plugin/wp-facebook-reviews/reviews/#new-post" target="_blank">Ok, you deserve it</a></li>
+			<li><a href="'.$urlmayberlater.'">Not right now, maybe later</a></li>
+			<li><a href="'.$urlnotagain.'">Don\'t remind me again</a></li>
+			</ul>
+			<p>P.S. If you\'ve been thinking about upgrading to the <a href="https://ljapps.com/wp-review-slider-pro/" target="_blank">Pro</a> version, here\'s a 10% off coupon code you can use! ->  <b>wprevpro10off</b></p>';
+			
+			?>
+			<div class="notice notice-info">
+				<div class="wprevpro_admin_notice" style="color: #007500;">
+				<?php _e( $temphtml, $this->_token ); ?>
+				</div>
+			</div>
+			<?php
+		}
+
+	}
+	
+		/**
+	 * add dashboard widget to wordpress admin
+	 * @access  public
+	 * @since   9.1
+	 * @return  void
+	 */
+	public function wprevpro_dashboard_widget() {
+		global $wp_meta_boxes;
+		//wp_add_dashboard_widget('custom_help_widget', 'Theme Support', 'custom_dashboard_help');
+		add_meta_box( 'id', 'WP Review Slider Recent Reviews', array($this,'custom_dashboard_help'), 'dashboard', 'side', 'high' );
+	}
+	 
+	public function custom_dashboard_help() {
+		global $wpdb;
+		$reviews_table_name = $wpdb->prefix . 'wpfb_reviews';
+		$tempquery = "select * from ".$reviews_table_name." ORDER by created_time_stamp Desc limit 4";
+		$reviewrows = $wpdb->get_results($tempquery);
+		$now = time(); // or your date as well
+		
+		echo '<style>
+			img.wprev_dash_avatar {float: left;margin-right: 8px;border-radius: 20px;}
+			.wprev_dash_stars {float: right;}
+			p.wprev_dash_text {margin-top: -6px;}
+			span.wprev_dash_timeago {font-size: 12px;font-style: italic;}
+			.wprev_dash_revdiv {min-height: 50px;}
+			</style>';
+		echo '<ul>';
+		foreach ( $reviewrows as $review ) 
+		{
+			$timesince = '';
+			if(strlen($review->review_text)>130){
+				$reviewtext = substr($review->review_text,0,130).'...';
+			} else {
+				$reviewtext = $review->review_text;
+			}
+			
+			$your_date = $review->created_time_stamp;
+			$datediff = $now - $your_date;
+			$daysago = round($datediff / (60 * 60 * 24));
+			if($daysago==1){
+				$daysagohtml = $daysago.' day ago';
+			} else {
+				$daysagohtml = $daysago.' days ago';
+			}
+			if($review->rating<1){
+				if($review->recommendation_type=='positive'){
+					$review->rating=5;
+				} else {
+					$review->rating=2;
+				}
+			}
+
+			$imgs_url = plugin_dir_url(__DIR__).'/public/partials/imgs/';
+			$starfile = 'stars_'.$review->rating.'_yellow.png';
+			$starhtml='<img src="'.$imgs_url."".$starfile.'" alt="'.$review->rating.' star rating" class="wprev_dash_stars">';
+			
+			$avatarhtml = '';
+			if(isset($review->userpic) && $review->userpic!=''){
+				$avatarhtml = '<img alt="" src="'.$review->userpic.'" class="wprev_dash_avatar" height="40" width="40">';
+			}
+			
+			echo '<li><div class="wprev_dash_revdiv">'.$avatarhtml.'<div class="wprev_dash_stars">'.$starhtml.'</div><h4 class="wprev_dash_name">'.$review->reviewer_name.' - <span class="wprev_dash_timeago">'.$daysagohtml.'</span></h4><p class="wprev_dash_text">'.$reviewtext.'</p></div></li>';
+			
+		}
+		echo '</ul>';
+		
+		echo '<div><a href="admin.php?page=wp_fb-reviews">All Reviews</a> - <a href="https://ljapps.com/wp-review-slider-pro/" target="_blank">Go Pro For More Cool Features!</a></div>';
+	}
+
 
 }

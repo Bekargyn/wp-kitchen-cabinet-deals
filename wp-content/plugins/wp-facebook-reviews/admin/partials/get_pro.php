@@ -17,8 +17,12 @@
         return;
     }
 ?>
-<div class="wrap" id="wp_fb-settings">
-	<h1><img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>"></h1>
+<div class="wrap">
+<h1 style="padding:0px;"></h1>
+</div>
+<div id="wp_fb-settings">
+
+	<img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>">
 <?php 
 include("tabmenu.php");
 ?>
@@ -30,8 +34,8 @@ include("tabmenu.php");
     list-style-type: circle;
     margin-left: 30px;
 ">
-	<li>US based customer support via email and a forum.</li>
-	<li>Download your Yelp, TripAdvisor, and Google reviews as well!</li>
+	<li>US based customer support via email and a forum directly from the developer.</li>
+	<li>Download your reviews from Yelp, TripAdvisor, Google, and 80+ other social sites reviews as well!</li>
 	<li>Easily create a cool Summary review badge for your site.</li>
 	<li>Front end review submission form.</li>
 	<li>Create floating Summary Badges and Review Badges, that can display a slide-out of reviews when clicked.</li>
@@ -43,6 +47,7 @@ include("tabmenu.php");
 	<li>Download all your reviews in CSV format to your computer.</li>
 	<li>Access more Review Template styles!</li>
 	<li>Advanced slider controls like: Autoplay, slide animation direction, hide navigation arrows and dots, adjust slider height for each slide.</li>
+	<li>Create a summary WooCommerce slider with your latest product reviews!</li>
 	<li>Change the minimum rating of the reviews to display. Allows you to hide low rating reviews.</li>
 	<li>Use a minimum and maximum word count so you can hide short or long reviews.</li>
 	<li>Only display reviews of a certain type (Facebook, Yelp, TripAdvisor, manually input).</li>
@@ -51,6 +56,7 @@ include("tabmenu.php");
 	<li>Add a Read More link to long reviews!</li>
 	<li>Display a summary of your review ratings in a Google Search Result. You can automatically create the correct review snippet markup!</li>
 	<li>Manually add the Company and/or the Position of the person who left the review. </li>
+	<li>Add tags or language codes to reviews so you can filter by language.</li>
 	<li>Access to all new features we add in the future!</li>
 </ul>
 <h1>Some of Our Happy Pro Customers</h1> 

@@ -13,10 +13,10 @@
  * @package           WP_Facebook_Reviews
  *
  * @wordpress-plugin
- * Plugin Name:       WP Facebook Review Slider
+ * Plugin Name:       WP Review Slider
  * Plugin URI:        http://ljapps.com/wp-review-slider-pro/
- * Description:       Allows you to easily display your Facebook Page reviews in your Posts, Pages, and Widget areas.
- * Version:           7.3
+ * Description:       Allows you to easily display your Facebook Page reviews and Twitter posts in your Posts, Pages, and Widget areas.
+ * Version:           9.6
  * Author:            LJ Apps
  * Author URI:        http://ljapps.com/
  * License:           GPL-2.0+
@@ -37,9 +37,13 @@ if ( ! defined( 'WPINC' ) ) {
  * This action is documented in includes/class-wp-fb-reviews-activator.php
  */
 function activate_WP_FB_Reviews($networkwide) {
+	//save time activated
+	$newtime=time();
+	update_option( 'wprev_activated_time', $newtime );
 	require_once plugin_dir_path( __FILE__ ) . 'includes/class-wp-fb-reviews-activator.php';
 	WP_FB_Reviews_Activator::activate_all($networkwide);
 }
+
 
 /**
  * The code that runs during plugin deactivation.

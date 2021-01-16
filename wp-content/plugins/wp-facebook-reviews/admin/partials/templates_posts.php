@@ -55,6 +55,7 @@
 	//form deleting and updating here---------------------------
 	if(isset($_GET['taction'])){
 		$tid = htmlentities($_GET['tid']);
+		$tid = intval($tid);
 		//for deleting
 		if($_GET['taction'] == "del" && $_GET['tid'] > 0){
 			//security
@@ -234,8 +235,12 @@
      </p>
 </div>
 
-<div class="wrap" id="wp_fb-settings">
-	<h1><img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>"></h1>
+<div class="wrap">
+<h1 style="padding:0px;"></h1>
+</div>
+<div id="wp_fb-settings">
+
+	<img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>">
 <?php 
 include("tabmenu.php");
 ?>
@@ -417,6 +422,9 @@ echo $dbmsg;
 						  <div class="w3_wprs-col s6" id="wprevpro_template_preview">
 
 						  </div>
+						  <div style="display: inline-block;">
+						  <p class="description">(
+					<?php _e('The date format is take from WordPress Admin > Settings > General.', 'wp-fb-reviews'); ?>)</p></div>
 					</div>
 					<p class="description">
 					<?php _e('More styles available in <a href="?page=wp_fb-get_pro">Pro Version</a> of plugin!', 'wp-fb-reviews'); ?></p>
@@ -517,7 +525,7 @@ echo $dbmsg;
 
 			<tr>
 				<td class="notice updated " colspan="2" style="border-left: 4px solid #d6d6d6;">
-					<p><strong><?php _e('Upgrade to the Pro Version of this plugin to access more super cool settings! <a href="#TB_inline?tempnum=1&inlineId=mythickboxid&height=650&width=1030" class="thickbox">(Screenshot)</a> Get the Pro Version <a href="?page=wp_fb-get_pro">here</a>!', 'wp-fb-reviews'); ?></strong></p>
+					<p><strong><?php _e('Upgrade to the Pro Version of this plugin to access more super cool settings! Get the Pro Version <a href="https://ljapps.com/wp-review-slider-pro/" target="_blank">here</a>!', 'wp-fb-reviews'); ?></strong></p>
 				</td>
 			</tr>
 

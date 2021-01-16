@@ -54,11 +54,12 @@
 			$tablelimit = $tablelimit*$currentform[0]->numslides;
 		}
 		
+			
 			$totalreviews = $wpdb->get_results(
 				$wpdb->prepare("SELECT * FROM ".$table_name."
-				WHERE id>%d AND review_length >= %d AND type = %s
+				WHERE id>%d AND review_length >= %d AND (type = %s OR type = %s)
 				ORDER BY ".$sorttable." ".$sortdir." 
-				LIMIT ".$tablelimit." ", "0","$rlength","$rtype")
+				LIMIT ".$tablelimit." ", "0","$rlength","$rtype","Twitter")
 			);
 			
 			//print_r($totalreviews);
@@ -181,10 +182,11 @@
 						}
 						wprs_defer(function () {
 							jQuery(document).ready(function($) {
-								$('.wprev-slider-widget').wprs_unslider(
+								var fbslider =$('.wprev-slider-widget').wprs_unslider(
 									{
 									autoplay:false,
 									speed: '750',
+									delay: '5000',
 									animation: 'horizontal',
 									arrows: false,
 									animateHeight: true,

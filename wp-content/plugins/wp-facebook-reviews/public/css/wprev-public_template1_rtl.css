@@ -13,6 +13,6 @@
     right: 60px;
 }
 .wprevpro_t1_DIV_2:before {
-    right: 210px;
+    right: unset;
 }
 /*------end template style 1 --------*/

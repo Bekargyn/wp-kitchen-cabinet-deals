@@ -64,23 +64,46 @@ class WP_FB_Reviews_Activator {
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE $table_name (
-			id mediumint(9) NOT NULL AUTO_INCREMENT,
-			pageid varchar(50) DEFAULT '' NOT NULL,
-			pagename tinytext NOT NULL,
-			created_time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-			created_time_stamp int(12) NOT NULL,
-			reviewer_name tinytext NOT NULL,
-			reviewer_id varchar(50) DEFAULT '' NOT NULL,
-			rating int(2) NOT NULL,
-			recommendation_type varchar(12) DEFAULT '' NOT NULL,
-			review_text text NOT NULL,
-			hide varchar(3) DEFAULT '' NOT NULL,
-			review_length int(5) NOT NULL,
-			type varchar(12) DEFAULT '' NOT NULL,
-			userpic varchar(250) DEFAULT '' NOT NULL,
-			userpiclocal varchar(250) DEFAULT '' NOT NULL,
-			UNIQUE KEY id (id)
-		) $charset_collate;";
+				id mediumint(9) NOT NULL AUTO_INCREMENT,
+				pageid varchar(100) DEFAULT '' NOT NULL,
+				pagename tinytext NOT NULL,
+				created_time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+				created_time_stamp int(12) NOT NULL,
+				reviewer_name tinytext NOT NULL,
+				reviewer_email tinytext NOT NULL,
+				company_name varchar(100) DEFAULT '' NOT NULL,
+				company_title varchar(100) DEFAULT '' NOT NULL,
+				company_url varchar(100) DEFAULT '' NOT NULL,
+				reviewer_id varchar(50) DEFAULT '' NOT NULL,
+				rating int(2) NOT NULL,
+				recommendation_type varchar(12) DEFAULT '' NOT NULL,
+				review_text text NOT NULL,
+				hide varchar(3) DEFAULT '' NOT NULL,
+				review_length int(5) NOT NULL,
+				review_length_char int(5) NOT NULL,
+				type varchar(20) DEFAULT '' NOT NULL,
+				userpic varchar(500) DEFAULT '' NOT NULL,
+				userpic_small varchar(500) DEFAULT '' NOT NULL,
+				from_name varchar(20) DEFAULT '' NOT NULL,
+				from_url varchar(500) DEFAULT '' NOT NULL,
+				from_logo varchar(500) DEFAULT '' NOT NULL,
+				from_url_review varchar(500) DEFAULT '' NOT NULL,
+				review_title tinytext DEFAULT '' NOT NULL,
+				categories text NOT NULL,
+				posts text NOT NULL,
+				consent varchar(3) DEFAULT '' NOT NULL,
+				userpiclocal varchar(500) DEFAULT '' NOT NULL,
+				hidestars varchar(3) DEFAULT '' NOT NULL,
+				miscpic varchar(500) DEFAULT '' NOT NULL,
+				location varchar(500) DEFAULT '' NOT NULL,
+				verified_order varchar(10) DEFAULT '' NOT NULL,
+				language_code varchar(3) DEFAULT '' NOT NULL,
+				unique_id tinytext DEFAULT '' NOT NULL,
+				meta_data text DEFAULT '' NOT NULL,
+				owner_response text NOT NULL,
+				UNIQUE KEY id (id),
+				PRIMARY KEY (id)
+			) $charset_collate;";
 
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 		dbDelta( $sql );
@@ -114,19 +137,78 @@ class WP_FB_Reviews_Activator {
 			sliderheight varchar(3) DEFAULT '' NOT NULL,
 			showreviewsbyid varchar(600) DEFAULT '' NOT NULL,
 			template_misc varchar(200) DEFAULT '' NOT NULL,
-			UNIQUE KEY id (id)
+			UNIQUE KEY id (id),
+			PRIMARY KEY (id)
 		) $charset_collate;";
 		
 		dbDelta( $sql );
 		
-		//add columns to table, useful for updating plugin
-		//$column = "";
-		//$sql = "ALTER TABLE $table_name ADD $column VARCHAR( 3 ) NOT NULL";
-
-
-		dbDelta( $sql );
+			$table_name_getapps = $wpdb->prefix . 'wpfb_gettwitter_forms';
+			$sql_reviewfunnel = "CREATE TABLE $table_name_getapps (
+				id mediumint(9) NOT NULL AUTO_INCREMENT,
+				title varchar(200) DEFAULT '' NOT NULL,
+				site_type varchar(20) DEFAULT '' NOT NULL,
+				query text DEFAULT '' NOT NULL,
+				endpoint varchar(3) DEFAULT '' NOT NULL,
+				last_ran int(12) NOT NULL,
+				created_time_stamp int(12) NOT NULL,
+				blocks varchar(4) DEFAULT '' NOT NULL,
+				profile_img varchar(7) DEFAULT '' NOT NULL,
+				categories text NOT NULL,
+				posts text NOT NULL,
+				UNIQUE KEY id (id),
+				PRIMARY KEY (id)
+			) $charset_collate;";
+			dbDelta( $sql_reviewfunnel );
+			
+			
+			
+			//create directories in uploads folder for avatar and cache_settings
+			$upload = wp_upload_dir();
+			$upload_dir = $upload['basedir'];
+			$upload_dir_wprev = $upload_dir . '/wprevslider';
+			//check folder permissions, delete if false
+			if (is_dir($upload_dir_wprev)) {
+				$dir_writable = substr(sprintf('%o', fileperms($upload_dir_wprev)), -4) == "0775" ? true : false;
+				if($dir_writable==false){
+					//delete the directory and sub directories
+					self::wpprorev_rmrf($upload_dir_wprev);
+				}
+			}
+			
+			if (! is_dir($upload_dir_wprev)) {
+			   mkdir( $upload_dir_wprev, 0775 );
+			   chmod($upload_dir_wprev, 0775);
+			}
+			$upload_dir_wprev_avatars = $upload_dir . '/wprevslider/avatars';
+			if (! is_dir($upload_dir_wprev_avatars)) {
+			   mkdir( $upload_dir_wprev_avatars, 0775 );
+			   chmod($upload_dir_wprev_avatars, 0775);
+			}
+			$upload_dir_wprev_cache = $upload_dir . '/wprevslider/cache';
+			if (! is_dir($upload_dir_wprev_cache)) {
+			   mkdir( $upload_dir_wprev_cache, 0775 );
+			   chmod($upload_dir_wprev_cache, 0775);
+			}
+		
 
 	}
+	
+	//used to remove directories on uninstall
+	public static function wpprorev_rmrf( $dir )
+	{
+		foreach ( glob( $dir ) as $file ) {
+			
+			if ( is_dir( $file ) ) {
+				self::wpprorev_rmrf( "{$file}/*" );
+				rmdir( $file );
+			} else {
+				unlink( $file );
+			}
+		
+		}
+	}
+	
 
 
 }

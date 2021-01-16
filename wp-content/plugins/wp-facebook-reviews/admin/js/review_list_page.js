@@ -41,9 +41,9 @@
 		  ', "");
 		});
 		
-		//remove all button
+		//remove all button style="margin-bottom: 5px;"
 		$( "#wpfbr_removeallbtn" ).click(function() {
-		  openpopup("Are you sure?", '<p>This will delete all reviews in your Wordpress database including the ones you manually entered. It Does NOT affect your reviews on Facebook.</p>', '<a class="button dashicons-before dashicons-no" href="?page=wp_fb-reviews&opt=delall">Remove</a>');
+		  openpopup("Are you sure?", '<p>This will delete all reviews in your Wordpress database including the ones you manually entered. It Does NOT affect your reviews on Facebook or Twitter.</p>', '<a class="button dashicons-before dashicons-no" href="?page=wp_fb-reviews&opt=delallfb" style="margin-bottom: 5px;">Remove Facebook</a> <a class="button dashicons-before dashicons-no" href="?page=wp_fb-reviews&opt=delalltw" style="margin-bottom: 5px;">Remove Twitter</a> <a class="button dashicons-before dashicons-no" href="?page=wp_fb-reviews&opt=delall" style="margin-bottom: 5px;">Remove All Reviews</a>');
 		});	
 
 		//upgrade to pro

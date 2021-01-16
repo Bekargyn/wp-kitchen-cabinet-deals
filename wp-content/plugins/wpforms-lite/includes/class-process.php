@@ -1,17 +1,14 @@
 <?php
+
 /**
  * Process and validate form entries.
  *
- * @package    WPForms
- * @author     WPForms
- * @since      1.0.0
- * @license    GPL-2.0+
- * @copyright  Copyright (c) 2016, WPForms LLC
+ * @since 1.0.0
  */
 class WPForms_Process {
 
 	/**
-	 * Holds errors.
+	 * Store errors.
 	 *
 	 * @since 1.0.0
 	 *
@@ -20,7 +17,14 @@ class WPForms_Process {
 	public $errors;
 
 	/**
-	 * Holds formatted fields.
+	 * Confirmation message.
+	 *
+	 * @var string
+	 */
+	public $confirmation_message;
+
+	/**
+	 * Store formatted fields.
 	 *
 	 * @since 1.0.0
 	 *
@@ -29,7 +33,7 @@ class WPForms_Process {
 	public $fields;
 
 	/**
-	 * Holds the ID of a successful entry.
+	 * Store the ID of a successful entry.
 	 *
 	 * @since 1.2.3
 	 *
@@ -38,7 +42,7 @@ class WPForms_Process {
 	public $entry_id = 0;
 
 	/**
-	 * Holds form data.
+	 * Form data and settings.
 	 *
 	 * @since 1.4.5
 	 *
@@ -63,6 +67,9 @@ class WPForms_Process {
 	public function __construct() {
 
 		add_action( 'wp', array( $this, 'listen' ) );
+
+		add_action( 'wp_ajax_wpforms_submit', array( $this, 'ajax_submit' ) );
+		add_action( 'wp_ajax_nopriv_wpforms_submit', array( $this, 'ajax_submit' ) );
 	}
 
 	/**
@@ -72,12 +79,41 @@ class WPForms_Process {
 	 */
 	public function listen() {
 
-		if ( ! empty( $_GET['wpforms_return'] ) ) {
-			$this->entry_confirmation_redirect( '', $_GET['wpforms_return'] );
+		// Catch the post_max_size overflow.
+		if ( $this->post_max_size_overflow() ) {
+			return;
 		}
 
-		if ( ! empty( $_POST['wpforms']['id'] ) ) {
-			$this->process( stripslashes_deep( $_POST['wpforms'] ) );
+		if ( ! empty( $_GET['wpforms_return'] ) ) { // phpcs:ignore
+			$this->entry_confirmation_redirect( '', $_GET['wpforms_return'] ); // phpcs:ignore
+		}
+
+		if ( ! empty( $_POST['wpforms']['id'] ) ) { // phpcs:ignore
+			$this->process( stripslashes_deep( $_POST['wpforms'] ) ); // phpcs:ignore
+
+			$form_id = wp_unslash( $_POST['wpforms']['id'] );
+			if ( wpforms_is_amp() ) {
+				// Send 400 Bad Request when there are errors.
+				if ( ! empty( $this->errors[ $form_id ] ) ) {
+					$message = $this->errors[ $form_id ]['header'];
+					if ( ! empty( $this->errors[ $form_id ]['footer'] ) ) {
+						$message .= ' ' . $this->errors[ $form_id ]['footer'];
+					}
+					wp_send_json(
+						array(
+							'message' => $message,
+						),
+						400
+					);
+				} else {
+					wp_send_json(
+						array(
+							'message' => $this->get_confirmation_message( $this->form_data, $this->fields, $this->entry_id ),
+						),
+						200
+					);
+				}
+			}
 		}
 	}
 
@@ -85,8 +121,9 @@ class WPForms_Process {
 	 * Process the form entry.
 	 *
 	 * @since 1.0.0
+	 * @since 1.6.4 Added hCaptcha support.
 	 *
-	 * @param array $entry $_POST object.
+	 * @param array $entry Form submission raw data ($_POST).
 	 */
 	public function process( $entry ) {
 
@@ -94,88 +131,221 @@ class WPForms_Process {
 		$this->fields = array();
 		$form_id      = absint( $entry['id'] );
 		$form         = wpforms()->form->get( $form_id );
-		$honeypot     = false;
 
 		// Validate form is real and active (published).
 		if ( ! $form || 'publish' !== $form->post_status ) {
-			$this->errors[ $form_id ]['header'] = esc_html__( 'Invalid form.', 'wpforms' );
+			$this->errors[ $form_id ]['header'] = esc_html__( 'Invalid form.', 'wpforms-lite' );
 			return;
 		}
 
 		// Formatted form data for hooks.
-		$form_data = apply_filters( 'wpforms_process_before_form_data', wpforms_decode( $form->post_content ), $entry );
+		$this->form_data = apply_filters( 'wpforms_process_before_form_data', wpforms_decode( $form->post_content ), $entry );
 
-		// Pre-process/validate hooks and filter. Data is not validated or
-		// cleaned yet so use with caution.
-		$entry = apply_filters( 'wpforms_process_before_filter', $entry, $form_data );
+		// Pre-process/validate hooks and filter.
+		// Data is not validated or cleaned yet so use with caution.
+		$entry = apply_filters( 'wpforms_process_before_filter', $entry, $this->form_data );
 
-		do_action( 'wpforms_process_before', $entry, $form_data );
-		do_action( "wpforms_process_before_{$form_id}", $entry, $form_data );
+		do_action( 'wpforms_process_before', $entry, $this->form_data );
+		do_action( "wpforms_process_before_{$form_id}", $entry, $this->form_data );
 
 		// Validate fields.
-		foreach ( $form_data['fields'] as $field ) {
+		foreach ( $this->form_data['fields'] as $field_properties ) {
 
-			$field_id     = $field['id'];
-			$field_type   = $field['type'];
+			$field_id     = $field_properties['id'];
+			$field_type   = $field_properties['type'];
 			$field_submit = isset( $entry['fields'][ $field_id ] ) ? $entry['fields'][ $field_id ] : '';
 
-			do_action( "wpforms_process_validate_{$field_type}", $field_id, $field_submit, $form_data );
+			do_action( "wpforms_process_validate_{$field_type}", $field_id, $field_submit, $this->form_data );
 		}
 
-		// reCAPTCHA check.
-		$site_key   = wpforms_setting( 'recaptcha-site-key', '' );
-		$secret_key = wpforms_setting( 'recaptcha-secret-key', '' );
+		// CAPTCHA check.
+		$captcha_settings = wpforms_get_captcha_settings();
 		if (
-			! empty( $site_key ) &&
-			! empty( $secret_key ) &&
-			isset( $form_data['settings']['recaptcha'] ) &&
-			'1' == $form_data['settings']['recaptcha']
+			! empty( $captcha_settings['provider'] ) &&
+			'none' !== $captcha_settings['provider'] &&
+			! empty( $captcha_settings['site_key'] ) &&
+			! empty( $captcha_settings['secret_key'] ) &&
+			isset( $this->form_data['settings']['recaptcha'] ) &&
+			'1' == $this->form_data['settings']['recaptcha'] &&
+			! isset( $_POST['__amp_form_verify'] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing -- No need to check CAPTCHA until form is submitted.
+			&&
+			( ( 'recaptcha' === $captcha_settings['provider'] && 'v3' === $captcha_settings['recaptcha_type'] ) || ! wpforms_is_amp() ) // AMP requires Google reCAPTCHA v3.
 		) {
-			if ( ! empty( $_POST['g-recaptcha-response'] ) ) {
-				$data  = wp_remote_get( 'https://www.google.com/recaptcha/api/siteverify?secret=' . $secret_key . '&response=' . $_POST['g-recaptcha-response'] );
-				$data  = json_decode( wp_remote_retrieve_body( $data ) );
-				if ( empty( $data->success ) ) {
-					$this->errors[ $form_id ]['recaptcha'] = esc_html__( 'Incorrect reCAPTCHA, please try again.', 'wpforms' );
-				}
+
+			if ( 'hcaptcha' === $captcha_settings['provider'] ) {
+				$verify_url_raw   = 'https://hcaptcha.com/siteverify';
+				$captcha_provider = esc_html__( 'hCaptcha', 'wpforms-lite' );
+				$post_key         = 'h-captcha-response';
 			} else {
-				$this->errors[ $form_id ]['recaptcha'] = esc_html__( 'reCAPTCHA is required.', 'wpforms' );
+				$verify_url_raw   = 'https://www.google.com/recaptcha/api/siteverify';
+				$captcha_provider = esc_html__( 'Google reCAPTCHA', 'wpforms-lite' );
+				$post_key         = 'g-recaptcha-response';
+			}
+
+			/* translators: %s - The CAPTCHA provider name. */
+			$error           = wpforms_setting( "{$captcha_settings['provider']}-fail-msg", sprintf( esc_html__( '%s verification failed, please try again later.', 'wpforms-lite' ), $captcha_provider ) );
+			$token           = ! empty( $_POST[ $post_key ] ) ? $_POST[ $post_key ] : false; // phpcs:ignore
+			$is_recaptcha_v3 = 'recaptcha' === $captcha_settings['provider'] && 'v3' === $captcha_settings['recaptcha_type'];
+
+			if ( $is_recaptcha_v3 ) {
+				$token = ! empty( $_POST['wpforms']['recaptcha'] ) ? $_POST['wpforms']['recaptcha'] : false; // phpcs:ignore
+			}
+
+			$verify_query_arg = [
+				'secret'   => $captcha_settings['secret_key'],
+				'response' => $token,
+				'remoteip' => wpforms_get_ip(),
+			];
+
+			/*
+			 * hCaptcha uses user IP to better detect bots and their attacks on a form.
+			 * Majority of our users have GDPR disabled.
+			 * So we remove this data from the request only when it's not needed:
+			 * 1) when GDPR is enabled AND globally disabled user details storage;
+			 * 2) when GDPR is enabled AND IP address processing is disabled on per form basis.
+			 */
+			if (
+				wpforms_setting( 'gdpr', false ) &&
+				(
+					wpforms_setting( 'gdpr-disable-details', false ) ||
+					! empty( $this->form_data['settings']['disable_ip'] )
+				)
+			) {
+				unset( $verify_query_arg['remoteip'] );
+			}
+
+			$verify_url = add_query_arg( $verify_query_arg, $verify_url_raw );
+
+			/**
+			 * Filter the CAPTCHA verify URL.
+			 *
+			 * @since 1.6.4
+			 *
+			 * @param string $verify_url       The full CAPTCHA verify URL.
+			 * @param string $verify_url_raw   The CAPTCHA verify URL without query.
+			 * @param string $verify_query_arg The query arguments for verify URL.
+			 */
+			$verify_url = apply_filters( 'wpforms_process_captcha_verify_url', $verify_url, $verify_url_raw, $verify_query_arg );
+
+			// API call.
+			$response = json_decode( wp_remote_retrieve_body( wp_remote_get( $verify_url ) ) );
+
+			if (
+				empty( $response->success ) ||
+				( $is_recaptcha_v3 && $response->score <= wpforms_setting( 'recaptcha-v3-threshold', '0.4' ) )
+			) {
+				if ( $is_recaptcha_v3 ) {
+					if ( isset( $response->score ) ) {
+						$error .= ' (' . esc_html( $response->score ) . ')';
+					}
+					$this->errors[ $form_id ]['footer'] = $error;
+				} else {
+					$this->errors[ $form_id ]['recaptcha'] = $error;
+				}
 			}
 		}
+
+		// Check if combined upload size exceeds allowed maximum.
+		$this->validate_combined_upload_size( $form );
 
 		// Initial error check.
 		// Don't proceed if there are any errors thus far. We provide a filter
 		// so that other features, such as conditional logic, have the ability
 		// to adjust blocking errors.
-		$errors = apply_filters( 'wpforms_process_initial_errors', $this->errors, $form_data );
+		$errors = apply_filters( 'wpforms_process_initial_errors', $this->errors, $this->form_data );
+
+		if ( isset( $_POST['__amp_form_verify'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if ( empty( $errors[ $form_id ] ) ) {
+				wp_send_json( array(), 200 );
+			} else {
+				$verify_errors = array();
+
+				foreach ( $errors[ $form_id ] as $field_id => $error_fields ) {
+					$field            = $this->form_data['fields'][ $field_id ];
+					$field_properties = wpforms()->frontend->get_field_properties( $field, $this->form_data );
+
+					if ( is_string( $error_fields ) ) {
+
+						if ( 'checkbox' === $field['type'] || 'radio' === $field['type'] || 'select' === $field['type'] ) {
+							$first = current( $field_properties['inputs'] );
+							$name  = $first['attr']['name'];
+						} elseif ( isset( $field_properties['inputs']['primary']['attr']['name'] ) ) {
+							$name = $field_properties['inputs']['primary']['attr']['name'];
+						}
+
+						$verify_errors[] = array(
+							'name'    => $name,
+							'message' => $error_fields,
+						);
+					} else {
+						foreach ( $error_fields as $error_field => $error_message ) {
+
+							if ( isset( $field_properties['inputs'][ $error_field ]['attr']['name'] ) ) {
+								$name = $field_properties['inputs'][ $error_field ]['attr']['name'];
+							}
+
+							$verify_errors[] = array(
+								'name'    => $name,
+								'message' => $error_message,
+							);
+						}
+					}
+				}
+
+				wp_send_json(
+					array(
+						'verifyErrors' => $verify_errors,
+					),
+					400
+				);
+			}
+			return;
+		}
 
 		if ( ! empty( $errors[ $form_id ] ) ) {
-			if ( empty( $this->errors[ $form_id ]['header'] ) ) {
-				$errors[ $form_id ]['header'] = esc_html__( 'Form has not been submitted, please see the errors below.', 'wpforms' );
+			if ( empty( $errors[ $form_id ]['header'] ) ) {
+				$errors[ $form_id ]['header'] = esc_html__( 'Form has not been submitted, please see the errors below.', 'wpforms-lite' );
 			}
 			$this->errors = $errors;
 			return;
 		}
 
-		// Validate honeypot early - before actual processing.
-		if (
-			! empty( $form_data['settings']['honeypot'] ) &&
-			'1' == $form_data['settings']['honeypot'] &&
-			! empty( $entry['hp'] )
-		) {
-			$honeypot = esc_html__( 'WPForms honeypot field triggered.', 'wpforms' );
-		}
+		$honeypot = wpforms()->get( 'honeypot' )->validate( $this->form_data, $this->fields, $entry );
 
-		$honeypot = apply_filters( 'wpforms_process_honeypot', $honeypot, $this->fields, $entry, $form_data );
-
-		// If spam - return early.
+		// If we trigger the honey pot, we want to log the entry, disable the errors, and fail silently.
 		if ( $honeypot ) {
+
 			// Logs spam entry depending on log levels set.
 			wpforms_log(
 				'Spam Entry ' . uniqid(),
 				array( $honeypot, $entry ),
 				array(
 					'type'    => array( 'spam' ),
-					'form_id' => $form_data['id'],
+					'form_id' => $this->form_data['id'],
+				)
+			);
+
+			// Fail silently.
+			return;
+		}
+
+		$antispam = wpforms()->get( 'token' )->validate( $this->form_data, $this->fields, $entry );
+
+		// If spam - return early.
+		// For antispam, we want to make sure that we have a value, we are not using AMP, and the value is an error string.
+		if ( $antispam && ! wpforms_is_amp() && is_string( $antispam ) ) {
+
+			if ( $antispam ) {
+				$this->errors[ $form_id ]['header'] = $antispam;
+			}
+
+			// Logs spam entry depending on log levels set.
+			wpforms_log(
+				esc_html__( 'Spam Entry ' ) . uniqid(),
+				array( $antispam, $entry ),
+				array(
+					'type'    => array( 'spam' ),
+					'form_id' => $this->form_data['id'],
 				)
 			);
 
@@ -183,67 +353,98 @@ class WPForms_Process {
 		}
 
 		// Pass the form created date into the form data.
-		$form_data['created'] = $form->post_date;
+		$this->form_data['created'] = $form->post_date;
 
 		// Format fields.
-		foreach ( (array) $form_data['fields'] as $field ) {
+		foreach ( (array) $this->form_data['fields'] as $field_properties ) {
 
-			$field_id     = $field['id'];
-			$field_type   = $field['type'];
+			$field_id     = $field_properties['id'];
+			$field_type   = $field_properties['type'];
 			$field_submit = isset( $entry['fields'][ $field_id ] ) ? $entry['fields'][ $field_id ] : '';
 
-			do_action( "wpforms_process_format_{$field_type}", $field_id, $field_submit, $form_data );
+			do_action( "wpforms_process_format_{$field_type}", $field_id, $field_submit, $this->form_data );
 		}
 
 		// This hook is for internal purposes and should not be leveraged.
-		do_action( 'wpforms_process_format_after', $form_data );
+		do_action( 'wpforms_process_format_after', $this->form_data );
 
 		// Process hooks/filter - this is where most addons should hook
 		// because at this point we have completed all field validation and
 		// formatted the data.
-		$this->fields = apply_filters( 'wpforms_process_filter', $this->fields, $entry, $form_data );
+		$this->fields = apply_filters( 'wpforms_process_filter', $this->fields, $entry, $this->form_data );
 
-		do_action( 'wpforms_process', $this->fields, $entry, $form_data );
-		do_action( "wpforms_process_{$form_id}", $this->fields, $entry, $form_data );
+		do_action( 'wpforms_process', $this->fields, $entry, $this->form_data );
+		do_action( "wpforms_process_{$form_id}", $this->fields, $entry, $this->form_data );
 
-		$this->fields = apply_filters( 'wpforms_process_after_filter', $this->fields, $entry, $form_data );
+		$this->fields = apply_filters( 'wpforms_process_after_filter', $this->fields, $entry, $this->form_data );
 
 		// One last error check - don't proceed if there are any errors.
 		if ( ! empty( $this->errors[ $form_id ] ) ) {
 			if ( empty( $this->errors[ $form_id ]['header'] ) ) {
-				$this->errors[ $form_id ]['header'] = esc_html__( 'Form has not been submitted, please see the errors below.', 'wpforms' );
+				$this->errors[ $form_id ]['header'] = esc_html__( 'Form has not been submitted, please see the errors below.', 'wpforms-lite' );
 			}
 			return;
 		}
 
 		// Success - add entry to database.
-		$entry_id = $this->entry_save( $this->fields, $entry, $form_data['id'], $form_data );
+		$this->entry_id = $this->entry_save( $this->fields, $entry, $this->form_data['id'], $this->form_data );
 
-		// Success - send email notification.
-		$this->entry_email( $this->fields, $entry, $form_data, $entry_id, 'entry' );
+		// Fire the logic to send notification emails.
+		$this->entry_email( $this->fields, $entry, $this->form_data, $this->entry_id, 'entry' );
 
 		// Pass completed and formatted fields in POST.
 		$_POST['wpforms']['complete'] = $this->fields;
 
 		// Pass entry ID in POST.
-		$_POST['wpforms']['entry_id'] = $entry_id;
+		$_POST['wpforms']['entry_id'] = $this->entry_id;
 
 		// Logs entry depending on log levels set.
 		wpforms_log(
-			$entry_id ? "Entry {$entry_id}" : 'Entry',
+			$this->entry_id ? "Entry {$this->entry_id}" : 'Entry',
 			$this->fields,
 			array(
 				'type'    => array( 'entry' ),
-				'parent'  => $entry_id,
-				'form_id' => $form_data['id'],
+				'parent'  => $this->entry_id,
+				'form_id' => $this->form_data['id'],
 			)
 		);
 
 		// Post-process hooks.
-		do_action( 'wpforms_process_complete', $this->fields, $entry, $form_data, $entry_id );
-		do_action( "wpforms_process_complete_{$form_id}", $this->fields, $entry, $form_data, $entry_id );
+		do_action( 'wpforms_process_complete', $this->fields, $entry, $this->form_data, $this->entry_id );
+		do_action( "wpforms_process_complete_{$form_id}", $this->fields, $entry, $this->form_data, $this->entry_id );
 
-		$this->entry_confirmation_redirect( $form_data );
+		$this->entry_confirmation_redirect( $this->form_data );
+	}
+
+	/**
+	 * Check if combined upload size exceeds allowed maximum.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param \WP_Post $form Form post object.
+	 */
+	public function validate_combined_upload_size( $form ) {
+
+		$form_id       = (int) $form->ID;
+		$upload_fields = wpforms_get_form_fields( $form, array( 'file-upload' ) );
+
+		if ( ! empty( $upload_fields ) && ! empty( $_FILES ) ) {
+
+			// Get $_FILES keys generated by WPForms only.
+			$files_keys = preg_filter( '/^/', 'wpforms_' . $form_id . '_', array_keys( $upload_fields ) );
+
+			// Filter uploads without errors. Individual errors are handled by WPForms_Field_File_Upload class.
+			$files          = wp_list_filter( wp_array_slice_assoc( $_FILES, $files_keys ), array( 'error' => 0 ) );
+			$files_size     = array_sum( wp_list_pluck( $files, 'size' ) );
+			$files_size_max = wpforms_max_upload( true );
+
+			if ( $files_size > $files_size_max ) {
+
+				// Add new header error preserving previous ones.
+				$this->errors[ $form_id ]['header']  = ! empty( $this->errors[ $form_id ]['header'] ) ? $this->errors[ $form_id ]['header'] . '<br>' : '';
+				$this->errors[ $form_id ]['header'] .= esc_html__( 'Uploaded files combined size exceeds allowed maximum.', 'wpforms-lite' );
+			}
+		}
 	}
 
 	/**
@@ -251,8 +452,9 @@ class WPForms_Process {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $hash
-	 * @return mixed false for invalid or form id
+	 * @param string $hash Base64-encoded hash of form and entry IDs.
+	 *
+	 * @return array|false False for invalid or form id.
 	 */
 	public function validate_return_hash( $hash = '' ) {
 
@@ -275,17 +477,38 @@ class WPForms_Process {
 		return array(
 			'form_id'  => absint( $output['form_id'] ),
 			'entry_id' => absint( $output['form_id'] ),
-			'fields'   => $entry->fields,
+			'fields'   => null !== $entry && isset( $entry->fields ) ? $entry->fields : array(),
 		);
 	}
 
 	/**
-	 * Redirects user to a page or URL specified in the form confirmation settings.
+	 * Check if the confirmation data are valid.
+	 *
+	 * @since 1.6.4
+	 *
+	 * @param array $data The confirmation data.
+	 *
+	 * @return bool
+	 */
+	protected function is_valid_confirmation( $data ) {
+
+		if ( empty( $data['type'] ) ) {
+			return false;
+		}
+
+		// Confirmation type: redirect, page or message.
+		$type = $data['type'];
+
+		return isset( $data[ $type ] ) && ! wpforms_is_empty_string( $data[ $type ] );
+	}
+
+	/**
+	 * Redirect user to a page or URL specified in the form confirmation settings.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array|string $form_data
-	 * @param string $hash
+	 * @param array  $form_data Form data and settings.
+	 * @param string $hash      Base64-encoded hash of form and entry IDs.
 	 */
 	public function entry_confirmation_redirect( $form_data = array(), $hash = '' ) {
 
@@ -301,9 +524,12 @@ class WPForms_Process {
 			$this->valid_hash = true;
 			$this->entry_id   = absint( $hash_data['entry_id'] );
 			$this->fields     = json_decode( $hash_data['fields'], true );
-			$this->form_data  = wpforms()->form->get( absint( $hash_data['form_id'] ), array(
-				'content_only' => true,
-			) );
+			$this->form_data  = wpforms()->form->get(
+				absint( $hash_data['form_id'] ),
+				array(
+					'content_only' => true,
+				)
+			);
 
 		} else {
 
@@ -313,7 +539,7 @@ class WPForms_Process {
 		// Backward compatibility.
 		if ( empty( $this->form_data['settings']['confirmations'] ) ) {
 			$this->form_data['settings']['confirmations'][1]['type']           = ! empty( $this->form_data['settings']['confirmation_type'] ) ? $this->form_data['settings']['confirmation_type'] : 'message';
-			$this->form_data['settings']['confirmations'][1]['message']        = ! empty( $this->form_data['settings']['confirmation_message'] ) ? $this->form_data['settings']['confirmation_message'] : esc_html__( 'Thanks for contacting us! We will be in touch with you shortly.', 'wpforms' );
+			$this->form_data['settings']['confirmations'][1]['message']        = ! empty( $this->form_data['settings']['confirmation_message'] ) ? $this->form_data['settings']['confirmation_message'] : esc_html__( 'Thanks for contacting us! We will be in touch with you shortly.', 'wpforms-lite' );
 			$this->form_data['settings']['confirmations'][1]['message_scroll'] = ! empty( $this->form_data['settings']['confirmation_message_scroll'] ) ? $this->form_data['settings']['confirmation_message_scroll'] : 1;
 			$this->form_data['settings']['confirmations'][1]['page']           = ! empty( $this->form_data['settings']['confirmation_page'] ) ? $this->form_data['settings']['confirmation_page'] : '';
 			$this->form_data['settings']['confirmations'][1]['redirect']       = ! empty( $this->form_data['settings']['confirmation_redirect'] ) ? $this->form_data['settings']['confirmation_redirect'] : '';
@@ -335,6 +561,11 @@ class WPForms_Process {
 			if ( $default_confirmation_key === $confirmation_id ) {
 				break;
 			}
+
+			if ( ! $this->is_valid_confirmation( $confirmation ) ) {
+				continue;
+			}
+
 			$process_confirmation = apply_filters( 'wpforms_entry_confirmation_process', true, $this->fields, $form_data, $confirmation_id );
 			if ( $process_confirmation ) {
 				break;
@@ -346,6 +577,7 @@ class WPForms_Process {
 		if ( ! empty( $confirmations[ $confirmation_id ]['type'] ) && 'message' !== $confirmations[ $confirmation_id ]['type'] ) {
 
 			if ( 'redirect' === $confirmations[ $confirmation_id ]['type'] ) {
+				add_filter( 'wpforms_field_smart_tag_value', 'rawurlencode' );
 				$url = apply_filters( 'wpforms_process_smart_tags', $confirmations[ $confirmation_id ]['redirect'], $this->form_data, $this->fields, $this->entry_id );
 			}
 
@@ -356,7 +588,22 @@ class WPForms_Process {
 
 		if ( ! empty( $url ) ) {
 			$url = apply_filters( 'wpforms_process_redirect_url', $url, $this->form_data['id'], $this->fields, $this->form_data, $this->entry_id );
-			wp_redirect( esc_url_raw( $url ) );
+			if ( wpforms_is_amp() ) {
+				/** This filter is documented in wp-includes/pluggable.php */
+				$url = apply_filters( 'wp_redirect', $url, 302 );
+				$url = wp_sanitize_redirect( $url );
+				header( sprintf( 'AMP-Redirect-To: %s', $url ) );
+				header( 'Access-Control-Expose-Headers: AMP-Redirect-To', false );
+				wp_send_json(
+					array(
+						'message'     => __( 'Redirecting…', 'wpforms-lite' ),
+						'redirecting' => true,
+					),
+					200
+				);
+			} else {
+				wp_redirect( esc_url_raw( $url ) ); // phpcs:ignore
+			}
 			do_action( 'wpforms_process_redirect', $this->form_data['id'] );
 			do_action( "wpforms_process_redirect_{$this->form_data['id']}", $this->form_data['id'] );
 			exit;
@@ -364,7 +611,7 @@ class WPForms_Process {
 
 		// Pass a message to a frontend if no redirection happened.
 		if ( ! empty( $confirmations[ $confirmation_id ]['type'] ) && 'message' === $confirmations[ $confirmation_id ]['type'] ) {
-			wpforms()->frontend->confirmation_message = $confirmations[ $confirmation_id ]['message'];
+			$this->confirmation_message = $confirmations[ $confirmation_id ]['message'];
 
 			if ( ! empty( $confirmations[ $confirmation_id ]['message_scroll'] ) ) {
 				wpforms()->frontend->confirmation_message_scroll = true;
@@ -373,15 +620,71 @@ class WPForms_Process {
 	}
 
 	/**
-	 * Sends entry email notifications.
+	 * Get confirmation message.
+	 *
+	 * @since 1.5.3
+	 *
+	 * @param array $form_data Form data and settings.
+	 * @param array $fields    Sanitized field data.
+	 * @param int   $entry_id  Entry id.
+	 *
+	 * @return string Confirmation message.
+	 */
+	public function get_confirmation_message( $form_data, $fields, $entry_id ) {
+
+		if ( empty( $this->confirmation_message ) ) {
+			return '';
+		}
+
+		$confirmation_message = apply_filters( 'wpforms_process_smart_tags', $this->confirmation_message, $form_data, $fields, $entry_id );
+		$confirmation_message = apply_filters( 'wpforms_frontend_confirmation_message', wpautop( $confirmation_message ), $form_data, $fields, $entry_id );
+
+		return $confirmation_message;
+	}
+
+	/**
+	 * Catch the post_max_size overflow.
+	 *
+	 * @since 1.5.2
+	 *
+	 * @return bool
+	 */
+	public function post_max_size_overflow() {
+
+		if ( empty( $_SERVER['CONTENT_LENGTH'] ) || empty( $_GET['wpforms_form_id'] ) ) { // phpcs:ignore
+			return false;
+		}
+
+		$form_id       = (int) $_GET['wpforms_form_id'];
+		$total_size    = (int) $_SERVER['CONTENT_LENGTH'];
+		$post_max_size = wpforms_size_to_bytes( ini_get( 'post_max_size' ) );
+
+		if ( ! ( $total_size > $post_max_size && empty( $_POST ) && $form_id > 0 ) ) {
+			return false;
+		}
+
+		$total_size    = number_format( $total_size / 1048576, 3 );
+		$post_max_size = number_format( $post_max_size / 1048576, 3 );
+		$error_msg     = esc_html__( 'Form has not been submitted, please see the errors below.', 'wpforms-lite' );
+		$error_msg    .= '<br>' . esc_html__( 'The total size of the selected files {totalSize} Mb exceeds the allowed limit {maxSize} Mb.', 'wpforms-lite' );
+		$error_msg     = str_replace( '{totalSize}', $total_size, $error_msg );
+		$error_msg     = str_replace( '{maxSize}', $post_max_size, $error_msg );
+
+		$this->errors[ $form_id ]['header'] = $error_msg;
+
+		return true;
+	}
+
+	/**
+	 * Send entry email notifications.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $fields
-	 * @param array $entry
-	 * @param array $form_data
-	 * @param int $entry_id
-	 * @param string $context
+	 * @param array  $fields    List of fields.
+	 * @param array  $entry     Submitted form entry.
+	 * @param array  $form_data Form data and settings.
+	 * @param int    $entry_id  Saved entry id.
+	 * @param string $context   In which context this email is sent.
 	 */
 	public function entry_email( $fields, $entry, $form_data, $entry_id, $context = '' ) {
 
@@ -405,7 +708,7 @@ class WPForms_Process {
 
 		$fields = apply_filters( 'wpforms_entry_email_data', $fields, $entry, $form_data );
 
-		// Backwards compatibility for notifications before v1.2.3.
+		// Backwards compatibility for notifications before v1.4.3.
 		if ( empty( $form_data['settings']['notifications'] ) ) {
 			$notifications[1] = array(
 				'email'          => $form_data['settings']['notification_email'],
@@ -419,7 +722,7 @@ class WPForms_Process {
 			$notifications = $form_data['settings']['notifications'];
 		}
 
-		foreach ( $notifications as $notification_id => $notification ) {
+		foreach ( $notifications as $notification_id => $notification ) :
 
 			if ( empty( $notification['email'] ) ) {
 				continue;
@@ -435,7 +738,7 @@ class WPForms_Process {
 
 			// Setup email properties.
 			/* translators: %s - form name. */
-			$email['subject']        = ! empty( $notification['subject'] ) ? $notification['subject'] : sprintf( esc_html__( 'New %s Entry', 'wpforms' ), $form_data['settings']['form_title'] );
+			$email['subject']        = ! empty( $notification['subject'] ) ? $notification['subject'] : sprintf( esc_html__( 'New %s Entry', 'wpforms-lite' ), $form_data['settings']['form_title'] );
 			$email['address']        = explode( ',', apply_filters( 'wpforms_process_smart_tags', $notification['email'], $form_data, $fields, $this->entry_id ) );
 			$email['address']        = array_map( 'sanitize_email', $email['address'] );
 			$email['sender_address'] = ! empty( $notification['sender_address'] ) ? $notification['sender_address'] : get_option( 'admin_email' );
@@ -448,6 +751,7 @@ class WPForms_Process {
 			$emails = new WPForms_WP_Emails();
 			$emails->__set( 'form_data', $form_data );
 			$emails->__set( 'fields', $fields );
+			$emails->__set( 'notification_id', $notification_id );
 			$emails->__set( 'entry_id', $this->entry_id );
 			$emails->__set( 'from_name', $email['sender_name'] );
 			$emails->__set( 'from_address', $email['sender_address'] );
@@ -458,29 +762,188 @@ class WPForms_Process {
 				$emails->__set( 'cc', $notification['carboncopy'] );
 			}
 
+			$emails = apply_filters( 'wpforms_entry_email_before_send', $emails );
+
 			// Go.
 			foreach ( $email['address'] as $address ) {
 				$emails->send( trim( $address ), $email['subject'], $email['message'] );
 			}
-		} // End foreach().
+		endforeach;
 	}
 
 	/**
-	 * Saves entry to database.
+	 * Save entry to database.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $fields
-	 * @param array $entry
-	 * @param int $form_id
-	 * @param array|string $form_data
+	 * @param array $fields    List of form fields.
+	 * @param array $entry     User submitted data.
+	 * @param int   $form_id   Form ID.
+	 * @param array $form_data Prepared form settings.
 	 *
 	 * @return int
 	 */
-	public function entry_save( $fields, $entry, $form_id, $form_data = '' ) {
+	public function entry_save( $fields, $entry, $form_id, $form_data = array() ) {
 
 		do_action( 'wpforms_process_entry_save', $fields, $entry, $form_id, $form_data );
 
 		return $this->entry_id;
+	}
+
+	/**
+	 * Process AJAX form submit.
+	 *
+	 * @since 1.5.3
+	 */
+	public function ajax_submit() {
+
+		$form_id = isset( $_POST['wpforms']['id'] ) ? absint( $_POST['wpforms']['id'] ) : 0; // phpcs:ignore
+
+		if ( empty( $form_id ) ) {
+			wp_send_json_error();
+		}
+
+		if ( isset( $_POST['wpforms']['post_id'] ) ) { // phpcs:ignore
+			// We don't have a global $post when processing ajax requests.
+			// Therefore, it's needed to set a global $post manually for compatibility with functions used in smart tag processing.
+			global $post;
+			$post = WP_Post::get_instance( absint( $_POST['wpforms']['post_id'] ) ); // phpcs:ignore
+		}
+
+		add_filter( 'wp_redirect', array( $this, 'ajax_process_redirect' ), 999 );
+
+		do_action( 'wpforms_ajax_submit_before_processing', $form_id );
+
+		// If redirect happens in listen(), ajax_process_redirect() gets executed because of the filter on `wp_redirect`.
+		// The code, that is below listen(), runs only if no redirect happened.
+		$this->listen();
+
+		$form_data = $this->form_data;
+
+		if ( empty( $form_data ) ) {
+			$form_data = wpforms()->form->get( $form_id, array( 'content_only' => true ) );
+			$form_data = apply_filters( 'wpforms_frontend_form_data', $form_data );
+		}
+
+		if ( ! empty( $this->errors[ $form_id ] ) ) {
+			$this->ajax_process_errors( $form_id, $form_data );
+			wp_send_json_error();
+		}
+
+		ob_start();
+
+		wpforms()->frontend->confirmation( $form_data );
+
+		$response = apply_filters( 'wpforms_ajax_submit_success_response', array( 'confirmation' => ob_get_clean() ), $form_id, $form_data );
+
+		do_action( 'wpforms_ajax_submit_completed', $form_id, $response );
+
+		wp_send_json_success( $response );
+	}
+
+	/**
+	 * Process AJAX errors.
+	 *
+	 * @since 1.5.3
+	 * @todo This should be re-used/combined for AMP verify-xhr requests.
+	 *
+	 * @param int   $form_id   Form ID.
+	 * @param array $form_data Form data and settings.
+	 */
+	protected function ajax_process_errors( $form_id, $form_data ) {
+
+		$errors = isset( $this->errors[ $form_id ] ) ? $this->errors[ $form_id ] : array();
+
+		$errors = apply_filters( 'wpforms_ajax_submit_errors', $errors, $form_id, $form_data );
+
+		if ( empty( $errors ) ) {
+			wp_send_json_error();
+		}
+
+		// General errors are errors that cannot be populated with jQuery Validate plugin.
+		$general_errors = array_intersect_key( $errors, array_flip( array( 'header', 'footer', 'recaptcha' ) ) );
+
+		foreach ( $general_errors as $key => $error ) {
+			ob_start();
+			wpforms()->frontend->form_error( $key, $error );
+			$general_errors[ $key ] = ob_get_clean();
+		}
+
+		$fields = isset( $form_data['fields'] ) ? $form_data['fields'] : array();
+
+		// Get registered fields errors only.
+		$field_errors = array_intersect_key( $errors, $fields );
+
+		// Transform field ids to field names for jQuery Validate plugin.
+		foreach ( $field_errors as $key => $error ) {
+
+			$name = $this->ajax_error_field_name( $fields[ $key ], $form_data, $error );
+			if ( $name ) {
+				$field_errors[ $name ] = $error;
+			}
+
+			unset( $field_errors[ $key ] );
+		}
+
+		$response = array();
+
+		if ( $general_errors ) {
+			$response['errors']['general'] = $general_errors;
+		}
+
+		if ( $field_errors ) {
+			$response['errors']['field'] = $field_errors;
+		}
+
+		$response = apply_filters( 'wpforms_ajax_submit_errors_response', $response, $form_id, $form_data );
+
+		do_action( 'wpforms_ajax_submit_completed', $form_id, $response );
+
+		wp_send_json_error( $response );
+	}
+
+	/**
+	 * Get field name for ajax error message.
+	 *
+	 * @since 1.6.3
+	 *
+	 * @param array  $field     Field settings.
+	 * @param array  $form_data Form data and settings.
+	 * @param string $error     Error message.
+	 *
+	 * @return string
+	 */
+	private function ajax_error_field_name( $field, $form_data, $error ) {
+
+		$props = wpforms()->frontend->get_field_properties( $field, $form_data );
+
+		return apply_filters( 'wpforms_process_ajax_error_field_name', '', $field, $props, $error );
+	}
+
+	/**
+	 * Process AJAX redirect.
+	 *
+	 * @since 1.5.3
+	 *
+	 * @param string $url Redirect URL.
+	 */
+	public function ajax_process_redirect( $url ) {
+
+		$form_id = isset( $_POST['wpforms']['id'] ) ? absint( $_POST['wpforms']['id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification
+
+		if ( empty( $form_id ) ) {
+			wp_send_json_error();
+		}
+
+		$response = array(
+			'form_id'      => $form_id,
+			'redirect_url' => $url,
+		);
+
+		$response = apply_filters( 'wpforms_ajax_submit_redirect', $response, $form_id, $url );
+
+		do_action( 'wpforms_ajax_submit_completed', $form_id, $response );
+
+		wp_send_json_success( $response );
 	}
 }

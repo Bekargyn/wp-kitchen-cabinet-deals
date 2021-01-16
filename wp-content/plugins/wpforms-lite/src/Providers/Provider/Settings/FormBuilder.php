@@ -8,11 +8,7 @@ use WPForms\Providers\Provider\Status;
 /**
  * Class FormBuilder handles functionality inside the form builder.
  *
- * @package    WPForms\Providers\Provider\Settings
- * @author     WPForms
- * @since      1.4.7
- * @license    GPL-2.0+
- * @copyright  Copyright (c) 2018, WPForms LLC
+ * @since 1.4.7
  */
 abstract class FormBuilder implements FormBuilderInterface {
 
@@ -36,7 +32,7 @@ abstract class FormBuilder implements FormBuilderInterface {
 	protected $type = 'connection';
 
 	/**
-	 * Form data.
+	 * Form data and settings.
 	 *
 	 * @since 1.4.7
 	 *
@@ -97,8 +93,21 @@ abstract class FormBuilder implements FormBuilderInterface {
 	 * Used to register generic templates for all providers inside form builder.
 	 *
 	 * @since 1.4.7
+	 * @since 1.6.2 Added sub-templates for conditional logic based on provider.
 	 */
 	public function builder_templates() {
+
+		$cl_builder_block = wpforms_conditional_logic()->builder_block(
+			array(
+				'form'       => $this->form_data,
+				'type'       => 'panel',
+				'parent'     => 'providers',
+				'panel'      => esc_attr( $this->core->slug ),
+				'subsection' => '%connection_id%',
+				'reference'  => esc_html__( 'Marketing provider connection', 'wpforms-lite' ),
+			),
+			false
+		);
 		?>
 
 		<!-- Single connection block sub-template: FIELDS -->
@@ -108,8 +117,8 @@ abstract class FormBuilder implements FormBuilderInterface {
 				<table class="wpforms-builder-provider-connection-fields-table">
 					<thead>
 						<tr>
-							<th><?php \esc_html_e( 'Custom Field Name', 'wpforms' ); ?></th>
-							<th colspan="3"><?php \esc_html_e( 'Form Field Value', 'wpforms' ); ?></th>
+							<th><?php \esc_html_e( 'Custom Field Name', 'wpforms-lite' ); ?></th>
+							<th colspan="3"><?php \esc_html_e( 'Form Field Value', 'wpforms-lite' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -117,33 +126,55 @@ abstract class FormBuilder implements FormBuilderInterface {
 							<# _.each( data.connection.fields_meta, function( item, meta_id ) { #>
 								<tr class="wpforms-builder-provider-connection-fields-table-row">
 									<td>
-										<input type="text" value="{{ item.name }}"
-										       name="providers[<?php echo \esc_attr( $this->core->slug ); ?>][{{ data.connection.id }}][fields_meta][{{ meta_id }}][name]"
-										       placeholder="<?php \esc_attr_e( 'Field Name', 'wpforms' ); ?>"
-										/>
+										<# if ( ! _.isEmpty( data.provider.fields ) ) { #>
+											<select class="wpforms-builder-provider-connection-field-name"
+												name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][{{ meta_id }}][name]">
+												<option value=""><# if ( ! _.isEmpty( data.provider.placeholder ) ) { #>{{ data.provider.placeholder }}<# } else { #><?php esc_html_e( '--- Select Field ---', 'wpforms-lite' ); ?><# } #></option>
+
+												<# _.each( data.provider.fields, function( field_name, field_id ) { #>
+													<option value="{{ field_id }}"
+														<# if ( field_id === item.name ) { #>selected="selected"<# } #>
+													>
+														{{ field_name }}
+													</option>
+												<# } ); #>
+
+											</select>
+										<# } else { #>
+											<input type="text" value="{{ item.name }}"
+												class="wpforms-builder-provider-connection-field-name"
+												name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][{{ meta_id }}][name]"
+												placeholder="<?php \esc_attr_e( 'Field Name', 'wpforms-lite' ); ?>"
+											/>
+										<# } #>
 									</td>
 									<td>
-										<select name="providers[<?php echo \esc_attr( $this->core->slug ); ?>][{{ data.connection.id }}][fields_meta][{{ meta_id }}][field_id]">
-											<option value=""><?php \esc_html_e( '--- Select Field ---', 'wpforms' ); ?></option>
+										<select class="wpforms-builder-provider-connection-field-value"
+											name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][{{ meta_id }}][field_id]">
+											<option value=""><?php esc_html_e( '--- Select Form Field ---', 'wpforms-lite' ); ?></option>
 
 											<# _.each( data.fields, function( field, key ) { #>
 												<option value="{{ field.id }}"
 														<# if ( field.id === item.field_id ) { #>selected="selected"<# } #>
 												>
-													{{ field.label }}
+												<# if ( ! _.isUndefined( field.label ) && field.label.toString().trim() !== '' ) { #>
+													{{ field.label.toString().trim() }}
+												<# } else { #>
+													{{ wpforms_builder.field + ' #' + key }}
+												<# } #>
 												</option>
 											<# } ); #>
 										</select>
 									</td>
 									<td class="add">
 										<button class="button-secondary js-wpforms-builder-provider-connection-fields-add"
-										        title="<?php \esc_attr_e( 'Add Another', 'wpforms' ); ?>">
+										        title="<?php \esc_attr_e( 'Add Another', 'wpforms-lite' ); ?>">
 											<i class="fa fa-plus-circle"></i>
 										</button>
 									</td>
 									<td class="delete">
 										<button class="button js-wpforms-builder-provider-connection-fields-delete <# if ( meta_id === 0 ) { #>hidden<# } #>"
-										        title="<?php \esc_attr_e( 'Remove', 'wpforms' ); ?>">
+										        title="<?php \esc_attr_e( 'Remove', 'wpforms-lite' ); ?>">
 											<i class="fa fa-minus-circle"></i>
 										</button>
 									</td>
@@ -152,31 +183,51 @@ abstract class FormBuilder implements FormBuilderInterface {
 						<# } else { #>
 							<tr class="wpforms-builder-provider-connection-fields-table-row">
 								<td>
-									<input type="text" value=""
-									       name="providers[<?php echo \esc_attr( $this->core->slug ); ?>][{{ data.connection.id }}][fields_meta][0][name]"
-									       placeholder="<?php \esc_attr_e( 'Field Name', 'wpforms' ); ?>"
-									/>
+									<# if ( ! _.isEmpty( data.provider.fields ) ) { #>
+										<select class="wpforms-builder-provider-connection-field-name"
+											name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][0][name]">
+											<option value=""><# if ( ! _.isEmpty( data.provider.placeholder ) ) { #>{{ data.provider.placeholder }}<# } else { #><?php esc_html_e( '--- Select Field ---', 'wpforms-lite' ); ?><# } #></option>
+
+											<# _.each( data.provider.fields, function( field_name, field_id ) { #>
+												<option value="{{ field_id }}">
+													{{ field_name }}
+												</option>
+											<# } ); #>
+
+										</select>
+									<# } else { #>
+										<input type="text" value=""
+											class="wpforms-builder-provider-connection-field-name"
+											name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][0][name]"
+											placeholder="<?php \esc_attr_e( 'Field Name', 'wpforms-lite' ); ?>"
+										/>
+									<# } #>
 								</td>
 								<td>
-									<select name="providers[<?php echo \esc_attr( $this->core->slug ); ?>][{{ data.connection.id }}][fields_meta][0][field_id]">
-										<option value=""><?php \esc_html_e( '--- Select Field ---', 'wpforms' ); ?></option>
+									<select class="wpforms-builder-provider-connection-field-value"
+										name="providers[{{ data.provider.slug }}][{{ data.connection.id }}][fields_meta][0][field_id]">
+										<option value=""><?php esc_html_e( '--- Select Form Field ---', 'wpforms-lite' ); ?></option>
 
 										<# _.each( data.fields, function( field, key ) { #>
 											<option value="{{ field.id }}">
-												{{ field.label }}
+												<# if ( ! _.isUndefined( field.label ) && field.label.toString().trim() !== '' ) { #>
+													{{ field.label.toString().trim() }}
+												<# } else { #>
+													{{ wpforms_builder.field + ' #' + key }}
+												<# } #>
 											</option>
 										<# } ); #>
 									</select>
 								</td>
 								<td class="add">
 									<button class="button-secondary js-wpforms-builder-provider-connection-fields-add"
-									        title="<?php \esc_attr_e( 'Add Another', 'wpforms' ); ?>">
+									        title="<?php \esc_attr_e( 'Add Another', 'wpforms-lite' ); ?>">
 										<i class="fa fa-plus-circle"></i>
 									</button>
 								</td>
 								<td class="delete">
 									<button class="button js-wpforms-builder-provider-connection-fields-delete hidden"
-									        title="<?php \esc_attr_e( 'Delete', 'wpforms' ); ?>">
+									        title="<?php \esc_attr_e( 'Delete', 'wpforms-lite' ); ?>">
 										<i class="fa fa-minus-circle"></i>
 									</button>
 								</td>
@@ -186,27 +237,20 @@ abstract class FormBuilder implements FormBuilderInterface {
 				</table><!-- /.wpforms-builder-provider-connection-fields-table -->
 
 				<p class="description">
-					<?php \esc_html_e( 'Map custom fields (or properties) to form fields values.', 'wpforms' ); ?>
+					<?php \esc_html_e( 'Map custom fields (or properties) to form fields values.', 'wpforms-lite' ); ?>
 				</p>
 
 			</div><!-- /.wpforms-builder-provider-connection-fields -->
 		</script>
 
 		<!-- Single connection block sub-template: CONDITIONAL LOGIC -->
+		<script type="text/html" id="tmpl-wpforms-<?php echo esc_attr( $this->core->slug ); ?>-builder-content-connection-conditionals">
+			<?php echo $cl_builder_block; // phpcs:ignore ?>
+		</script>
+
+		<!-- DEPRECATED: Should be removed when we will make changes in our addons. -->
 		<script type="text/html" id="tmpl-wpforms-providers-builder-content-connection-conditionals">
-			<?php
-			echo wpforms_conditional_logic()->builder_block( // phpcs:ignore
-				array(
-					'form'       => $this->form_data,
-					'type'       => 'panel',
-					'parent'     => 'providers',
-					'panel'      => esc_attr( $this->core->slug ),
-					'subsection' => '%connection_id%',
-					'reference'  => esc_html__( 'Marketing provider connection', 'wpforms' ),
-				),
-				false
-			);
-			?>
+			<?php echo $cl_builder_block; // phpcs:ignore ?>
 		</script>
 		<?php
 	}
@@ -221,8 +265,6 @@ abstract class FormBuilder implements FormBuilderInterface {
 
 		$min = \wpforms_get_min_suffix();
 
-		// TODO: When switched to PHP 5.3+ - enable this.
-		/*
 		\wp_enqueue_script(
 			'wpforms-admin-builder-templates',
 			WPFORMS_PLUGIN_URL . "assets/js/components/admin/builder/templates{$min}.js",
@@ -230,7 +272,6 @@ abstract class FormBuilder implements FormBuilderInterface {
 			WPFORMS_VERSION,
 			true
 		);
-		*/
 
 		\wp_enqueue_script(
 			'wpforms-admin-builder-providers',
@@ -252,16 +293,16 @@ abstract class FormBuilder implements FormBuilderInterface {
 		\check_ajax_referer( 'wpforms-builder', 'nonce' );
 
 		// Check for permissions.
-		if ( ! \wpforms_current_user_can() ) {
+		if ( ! \wpforms_current_user_can( 'edit_forms' ) ) {
 			\wp_send_json_error(
 				array(
-					'error' => \esc_html__( 'You do not have permission to perform this action.', 'wpforms' ),
+					'error' => \esc_html__( 'You do not have permission to perform this action.', 'wpforms-lite' ),
 				)
 			);
 		}
 
 		// Process required values.
-		$error = array( 'error' => \esc_html__( 'Something went wrong while performing an AJAX request.', 'wpforms' ) );
+		$error = array( 'error' => \esc_html__( 'Something went wrong while performing an AJAX request.', 'wpforms-lite' ) );
 
 		if (
 			empty( $_POST['id'] ) ||
@@ -339,15 +380,14 @@ abstract class FormBuilder implements FormBuilderInterface {
 	}
 
 	/**
-	 * Wraps the builder section content with the required (for tabs switching) markup.
+	 * Wrap the builder section content with the required (for tabs switching) markup.
 	 *
 	 * @since 1.4.7
 	 */
 	public function display_content() {
 		?>
 
-		<div class="wpforms-panel-content-section wpforms-builder-provider wpforms-panel-content-section-<?php echo \esc_attr( $this->core->slug ); ?>"
-		     id="<?php echo \esc_attr( $this->core->slug ); ?>-provider">
+		<div class="wpforms-panel-content-section wpforms-builder-provider wpforms-panel-content-section-<?php echo \esc_attr( $this->core->slug ); ?>" id="<?php echo \esc_attr( $this->core->slug ); ?>-provider" data-provider="<?php echo \esc_attr( $this->core->slug ); ?>">
 
 			<!-- Provider content goes here. -->
 			<?php $this->display_content_header(); ?>
@@ -384,13 +424,13 @@ abstract class FormBuilder implements FormBuilderInterface {
 			<button class="wpforms-builder-provider-title-add js-wpforms-builder-provider-connection-add <?php echo $is_configured ? '' : 'hidden'; ?>"
 			        data-form_id="<?php echo \absint( $_GET['form_id'] ); ?>"
 			        data-provider="<?php echo \esc_attr( $this->core->slug ); ?>">
-				<?php \esc_html_e( 'Add New Connection', 'wpforms' ); ?>
+				<?php \esc_html_e( 'Add New Connection', 'wpforms-lite' ); ?>
 			</button>
 
 			<button class="wpforms-builder-provider-title-add js-wpforms-builder-provider-account-add <?php echo ! $is_configured ? '' : 'hidden'; ?>"
 			        data-form_id="<?php echo \absint( $_GET['form_id'] ); ?>"
 			        data-provider="<?php echo \esc_attr( $this->core->slug ); ?>">
-				<?php \esc_html_e( 'Add New Account', 'wpforms' ); ?>
+				<?php \esc_html_e( 'Add New Account', 'wpforms-lite' ); ?>
 			</button>
 
 		</div>

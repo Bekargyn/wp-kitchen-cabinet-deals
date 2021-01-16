@@ -31,9 +31,12 @@
 
 
 ?>
-    
-<div class="wrap" id="wp_fb-settings">
-	<h1><img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>"></h1>
+    	
+<div class="wrap">
+<h1 style="padding:0px;"></h1>
+</div>
+<div id="wp_fb-settings">
+<img src="<?php echo plugin_dir_url( __FILE__ ) . 'logo.png'; ?>">
 
 <?php 
 include("tabmenu.php");

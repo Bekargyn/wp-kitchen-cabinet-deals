@@ -207,3 +207,16 @@ div#userpicwarning {
     padding: 5px;
     background: aliceblue;
 }
+.bordereddiv {
+    border: 1px solid #e5e5e5;
+    -webkit-box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+    padding: 10px;
+	    margin-bottom: 10px;
+}
+.w3-yellow{
+    background: yellow !important;
+}
+.wprevpro_admin_notice {
+    color: #006800;
+}

@@ -58,7 +58,7 @@
 		//for style preview changes.-------------
 		var starhtml = '<span class="wprevpro_star_imgs"><img src="' + adminjs_script_vars.pluginsUrl + '/public/partials/imgs/stars_5_yellow.png" alt="" >&nbsp;&nbsp;</span>';
 		var sampltext = 'This is a sample review. Hands down the best experience we have had in the southeast! Awesome accommodations, great staff. We will gladly drive four hours for this gem!';
-		var datehtml = '<span id="wprev_showdate">1/12/2017</span>';
+		var datehtml = '<span id="wprev_showdate">'+adminjs_script_vars.sampledate+'</span>';
 		var imagehref = adminjs_script_vars.pluginsUrl + '/admin/partials/sample_avatar.jpg';
 		var avatarimg = imagehref;
 		

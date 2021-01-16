@@ -35,13 +35,21 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 		$option2 = 'wp-fb-reviews_version';
 		$option3 = 'wpfbr_options';
 		$option4 = 'wpfbr_fb_app_id';
+		$option5 = 'wprev_notice_hide';
+		$option6 = 'wprev_activated_time';
+		
 		
 		
 	//================
 	//check for pro version, if yes then do not delete this stuff
-	$filename = plugins_url( 'wp-review-slider-pro/wp-review-slider-pro.php', dirname(__FILE__) );
+	//check for pro version, if yes then do not delete this stuff
+$filename = plugin_dir_path( __DIR__ ).'/wp-review-slider-pro-premium/wp-review-slider-pro.php';
+$filename2 = plugin_dir_path( __DIR__ ).'/wp-review-slider-pro/wp-review-slider-pro.php';
 
-	if ( is_plugin_active( 'wp-review-slider-pro-premium/wp-review-slider-pro.php' ) ) {
+	if ( is_plugin_active( 'wp-review-slider-pro-premium/wp-review-slider-pro.php' ) || file_exists($filename)) {
+		//pro version is installed and activated do not delete tables
+		
+	} else if ( is_plugin_active( 'wp-review-slider-pro/wp-review-slider-pro.php' ) || file_exists($filename2)) {
 		//pro version is installed and activated do not delete tables
 		
 	} else {
@@ -53,6 +61,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			delete_option( $option2 );
 			delete_option( $option3 );
 			delete_option( $option4 );
+			delete_option( $option5);
+			delete_option( $option6 );
 			
 			//delete review table in database
 			global $wpdb;
@@ -79,6 +89,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 				delete_option( $option2 );
 				delete_option( $option3 );
 				delete_option( $option4 );
+				delete_option( $option5);
+			delete_option( $option6 );
 				
 				$table_name = $wpdb->prefix . 'wpfb_reviews';
 			
@@ -95,10 +107,27 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 			switch_to_blog( $original_blog_id );
 		}
+		
+		    //delete avatar and cache directories
+			$upload = wp_upload_dir();
+			$upload_dir = $upload['basedir'];
+			$upload_dir_wprev = $upload_dir . '/wprevslider/';
+			wpprorev_rmrf( $upload_dir_wprev );
 	}
 	//==================
 	
-
+function wpprorev_rmrf( $dir )
+	{
+		foreach ( glob( $dir ) as $file ) {
+			if ( is_dir( $file ) ) {
+				wpprorev_rmrf( "{$file}/*" );
+				rmdir( $file );
+			} else {
+				unlink( $file );
+			}
+		
+		}
+	}
 
 
 

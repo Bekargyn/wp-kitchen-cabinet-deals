@@ -69,7 +69,7 @@ class WP_FB_Reviews {
 	public function __construct() {
 
 		$this->_token = 'wp-fb-reviews';
-		$this->version = '7.3';
+		$this->version = '9.6';
 		//using this for development
 		//$this->version = time();
 
@@ -78,8 +78,11 @@ class WP_FB_Reviews {
 		
 		if (is_admin()) {
 			$this->define_admin_hooks();
-			//update times ran and display message if times ran equals 10 to 12.
-			$this->_times_ran_message();
+			
+			//final check to see if uploads directory was created and is writable
+			//if not then set to avatars and cache folders in plugin.
+			$this->_check_upload_folder_creation();
+
 			
 		}
 		$this->define_public_hooks();
@@ -88,28 +91,51 @@ class WP_FB_Reviews {
 		
 
 	}
+	
 	/**
-	 * Update times ran.
+	 * change avatar and cache directory if we weren't able to create it.
 	 * @access  public
 	 * @since   1.0.0
 	 * @return  void
 	 */
-	private function _times_ran_message () {
-		
-		$numtimesran = get_option( $this->_token . '_times_ran' );
-		if($numtimesran>0){
-			$numtimesran++;
-		} else {
-			$numtimesran = 1;
-		}
-		update_option( $this->_token . '_times_ran', $numtimesran );
-		
-		if($numtimesran>50 && $numtimesran<54){
-			//display message asking for review
-			$mess = '<div class="notice notice-info is-dismissible"><p>Do you like the plugin "WP Facebook Review Slider"? If so please take a moment to leave us a review <a href="https://wordpress.org/plugins/wp-facebook-reviews/" target="blank">here!</a></p></div>';
-			//echo $mess;
-		}
+	public function _check_upload_folder_creation () {
 
+		$upload = wp_upload_dir();
+		$upload_dir = $upload['basedir'];
+		$upload_dir_wprev = $upload_dir . '/wprevslider';
+
+		if (is_dir($upload_dir_wprev)) {
+			$fcreated = true;
+			$dir_writable = substr(sprintf('%o', fileperms($upload_dir_wprev)), -4) == "0775" ? true : false;
+		} else {
+			$fcreated = false;
+			$dir_writable = false;
+		}
+		
+		if($dir_writable==true && $fcreated == true){
+			$upload_dir_wprev_avatars = $upload_dir . '/wprevslider/avatars/';
+			$upload_dir_wprev_cache = $upload_dir . '/wprevslider/cache/';
+			$upload_url = $upload['baseurl'];
+			$upload_url_wprev_avatars = $upload_url . '/wprevslider/avatars/';
+			$upload_url_wprev_cache = $upload_url . '/wprevslider/cache/';
+			//check for ssl
+			if(is_ssl()) {
+				$upload_url_wprev_avatars = str_replace( 'http://', 'https://', $upload_url_wprev_avatars );
+				$upload_url_wprev_cache = str_replace( 'http://', 'https://', $upload_url_wprev_cache );
+			}
+		} else {
+			//set the constants to plugin local folders
+			$upload_dir_wprev_avatars = plugin_dir_path( __DIR__ ).'public/partials/avatars/';
+			$upload_dir_wprev_cache = plugin_dir_path( __DIR__ ).'public/partials/cache/';
+			$upload_url_wprev_avatars = plugins_url( 'public/partials/avatars/',  dirname(__FILE__)  );
+			$upload_url_wprev_cache = plugins_url( 'public/partials/cache/',  dirname(__FILE__)  );
+		}
+		$img_locations['upload_dir_wprev_avatars']=$upload_dir_wprev_avatars;
+		$img_locations['upload_url_wprev_avatars']=$upload_url_wprev_avatars;
+		$img_locations['upload_dir_wprev_cache']=$upload_dir_wprev_cache;
+		$img_locations['upload_url_wprev_cache']=$upload_url_wprev_cache;
+		$img_locations = json_encode($img_locations);
+		update_option( 'wprev_img_locations', $img_locations );
 	}
 	
 	/**
@@ -131,21 +157,44 @@ class WP_FB_Reviews {
 
 			$sql = "CREATE TABLE $table_name (
 				id mediumint(9) NOT NULL AUTO_INCREMENT,
-				pageid varchar(50) DEFAULT '' NOT NULL,
+				pageid varchar(100) DEFAULT '' NOT NULL,
 				pagename tinytext NOT NULL,
 				created_time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 				created_time_stamp int(12) NOT NULL,
 				reviewer_name tinytext NOT NULL,
+				reviewer_email tinytext NOT NULL,
+				company_name varchar(100) DEFAULT '' NOT NULL,
+				company_title varchar(100) DEFAULT '' NOT NULL,
+				company_url varchar(100) DEFAULT '' NOT NULL,
 				reviewer_id varchar(50) DEFAULT '' NOT NULL,
 				rating int(2) NOT NULL,
 				recommendation_type varchar(12) DEFAULT '' NOT NULL,
 				review_text text NOT NULL,
 				hide varchar(3) DEFAULT '' NOT NULL,
 				review_length int(5) NOT NULL,
-				type varchar(12) DEFAULT '' NOT NULL,
-				userpic varchar(250) DEFAULT '' NOT NULL,
-				userpiclocal varchar(250) DEFAULT '' NOT NULL,
-				UNIQUE KEY id (id)
+				review_length_char int(5) NOT NULL,
+				type varchar(20) DEFAULT '' NOT NULL,
+				userpic varchar(500) DEFAULT '' NOT NULL,
+				userpic_small varchar(500) DEFAULT '' NOT NULL,
+				from_name varchar(20) DEFAULT '' NOT NULL,
+				from_url varchar(500) DEFAULT '' NOT NULL,
+				from_logo varchar(500) DEFAULT '' NOT NULL,
+				from_url_review varchar(500) DEFAULT '' NOT NULL,
+				review_title tinytext DEFAULT '' NOT NULL,
+				categories text NOT NULL,
+				posts text NOT NULL,
+				consent varchar(3) DEFAULT '' NOT NULL,
+				userpiclocal varchar(500) DEFAULT '' NOT NULL,
+				hidestars varchar(3) DEFAULT '' NOT NULL,
+				miscpic varchar(500) DEFAULT '' NOT NULL,
+				location varchar(500) DEFAULT '' NOT NULL,
+				verified_order varchar(10) DEFAULT '' NOT NULL,
+				language_code varchar(3) DEFAULT '' NOT NULL,
+				unique_id tinytext DEFAULT '' NOT NULL,
+				meta_data text DEFAULT '' NOT NULL,
+				owner_response text NOT NULL,
+				UNIQUE KEY id (id),
+				PRIMARY KEY (id)
 			) $charset_collate;";
 
 			require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
@@ -180,14 +229,74 @@ class WP_FB_Reviews {
 				sliderheight varchar(3) DEFAULT '' NOT NULL,
 				showreviewsbyid varchar(600) DEFAULT '' NOT NULL,
 				template_misc varchar(200) DEFAULT '' NOT NULL,
-				UNIQUE KEY id (id)
+				UNIQUE KEY id (id),
+				PRIMARY KEY (id)
 			) $charset_collate;";
 			
 			dbDelta( $sql );
 			
+			$table_name_getapps = $wpdb->prefix . 'wpfb_gettwitter_forms';
+			$sql_reviewfunnel = "CREATE TABLE $table_name_getapps (
+				id mediumint(9) NOT NULL AUTO_INCREMENT,
+				title varchar(200) DEFAULT '' NOT NULL,
+				site_type varchar(20) DEFAULT '' NOT NULL,
+				query text DEFAULT '' NOT NULL,
+				endpoint varchar(3) DEFAULT '' NOT NULL,
+				last_ran int(12) NOT NULL,
+				created_time_stamp int(12) NOT NULL,
+				blocks varchar(4) DEFAULT '' NOT NULL,
+				profile_img varchar(7) DEFAULT '' NOT NULL,
+				categories text NOT NULL,
+				posts text NOT NULL,
+				UNIQUE KEY id (id),
+				PRIMARY KEY (id)
+			) $charset_collate;";
+			dbDelta( $sql_reviewfunnel );
+			
+						//create directories in uploads folder for avatar and cache_settings
+			$upload = wp_upload_dir();
+			$upload_dir = $upload['basedir'];
+			$upload_dir_wprev = $upload_dir . '/wprevslider';
+			//check folder permissions, delete if false
+			if (is_dir($upload_dir_wprev)) {
+				$dir_writable = substr(sprintf('%o', fileperms($upload_dir_wprev)), -4) == "0775" ? true : false;
+				if($dir_writable==false){
+					//delete the directory and sub directories
+					$this->wpprorev_rmrf($upload_dir_wprev);
+				}
+			}
+			if (! is_dir($upload_dir_wprev)) {
+			   mkdir( $upload_dir_wprev, 0775 );
+			   chmod($upload_dir_wprev, 0775);
+			}
+			$upload_dir_wprev_avatars = $upload_dir . '/wprevslider/avatars';
+			if (! is_dir($upload_dir_wprev_avatars)) {
+			   mkdir( $upload_dir_wprev_avatars, 0775 );
+			   chmod($upload_dir_wprev_avatars, 0775);
+			}
+			$upload_dir_wprev_cache = $upload_dir . '/wprevslider/cache';
+			if (! is_dir($upload_dir_wprev_cache)) {
+			   mkdir( $upload_dir_wprev_cache, 0775 );
+			   chmod($upload_dir_wprev_cache, 0775);
+			}
+			
 		}
 	} // End _log_version_number ()
 	
+		//used to remove directories
+	public function wpprorev_rmrf( $dir )
+	{
+		foreach ( glob( $dir ) as $file ) {
+			
+			if ( is_dir( $file ) ) {
+				$this->wpprorev_rmrf( "{$file}/*" );
+				rmdir( $file );
+			} else {
+				unlink( $file );
+			}
+		
+		}
+	}
 
 	/**
 	 * Load the required dependencies for this plugin.
@@ -245,6 +354,12 @@ class WP_FB_Reviews {
 		 * The class responsible for parsing yelp and tripadvisor pages
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/wppro_simple_html_dom.php';
+		
+		/**
+		 * The class responsible for making tritter calls
+		 */
+		 //autoload correct classes
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/twitteroauth/autoload.php';
 		
 		//register the loader
 		$this->loader = new WP_FB_Reviews_Loader();
@@ -306,8 +421,23 @@ class WP_FB_Reviews {
 		//$this->loader->add_action( 'wp_ajax_wpfb_fb_backup_reviews', $plugin_admin, 'wprevpro_ajax_download_fb_backup' );
 		
 		//add select shortcode list to post edit page
-		$this->loader->add_action( 'media_buttons', $plugin_admin, 'add_sc_select',11 ); 
-		$this->loader->add_action( 'admin_head', $plugin_admin, 'button_js' ); 
+		//$this->loader->add_action( 'media_buttons', $plugin_admin, 'add_sc_select',11 ); 
+		//$this->loader->add_action( 'admin_head', $plugin_admin, 'button_js' ); 
+		
+		//add ajax for searching for tweets
+		$this->loader->add_action( 'wp_ajax_wprp_twitter_gettweets', $plugin_admin, 'wprp_twitter_gettweets_ajax' ); 
+		
+		//add ajax for saving tweet
+		$this->loader->add_action( 'wp_ajax_wprp_twitter_savetweet', $plugin_admin, 'wprp_twitter_savetweet_ajax' ); 
+		//add ajax for deleting tweet
+		$this->loader->add_action( 'wp_ajax_wprp_twitter_deltweet', $plugin_admin, 'wprp_twitter_deltweet_ajax' ); 
+		
+		//for displaying leave review admin notice
+		$this->loader->add_action( 'admin_notices', $plugin_admin, 'wprp_admin_notice__success' ); 
+		//add_action( 'admin_notices', 'sample_admin_notice__success' );
+		
+		//dashboard widget to show newest reviews
+		$this->loader->add_action( 'wp_dashboard_setup', $plugin_admin, 'wprevpro_dashboard_widget' );
 		
 		
 	}

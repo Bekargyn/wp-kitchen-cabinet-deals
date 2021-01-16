@@ -8,7 +8,18 @@
  */
  .wprevpro_t1_outer_div {
     padding: 0px;
-    margin: 0px -10px 0px -10px;
+    margin: 0px 0px 0px 0px;
+}
+
+.wprs_unslider-wrap.wprs_unslider-carousel>li {
+    float: left;
+    margin: 0px !important;
+}
+
+img.wprevpro_t1_fb_logo {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
 }
 
 .wprevpro_t1_DIV_1 {
@@ -65,7 +76,7 @@
     column-rule-color: rgb(255, 255, 255);
     perspective-origin: 15px 15px;
     transform-origin: 15px 15px;
-    filter: drop-shadow(rgba(0, 0, 0, 0.0980392) 2px 2px 1px);
+    filter: drop-shadow(2px 2px 1px rgba(0, 0, 0, .0980392));
     border-top: 30px solid rgb(255, 255, 255);
     border-right: 30px solid rgba(0, 0, 0, 0);
     border-bottom: 0px solid rgba(0, 0, 0, 0);
@@ -155,6 +166,10 @@
 }
 img.wprevpro_t1_star_img_file {
     width: 100px;
+}
+img.wprevpro_t1_rec_img_file {
+    width: 16px;
+	margin-bottom: 0px;
 }
 img.wprevpro_t1_yelp_logo {
     position: absolute;
